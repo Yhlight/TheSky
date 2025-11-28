@@ -48,6 +48,7 @@ canvas {
 }
 
 h1 {
+    transition: opacity 0.5s ease-in-out;
     font-weight: 200;
     letter-spacing: 12px;
     font-size: 1.5rem;

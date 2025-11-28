@@ -68,8 +68,6 @@ const CFG = {
     hoverDamping: 0.95, // 悬浮阻尼，防止过度振荡
     gustChance: 0.003,  // (巡航时) 阵风发生概率
     gustForce: 1.2,     // (巡航时) 阵风强度
-    accelJitterChance: 0.05, // (加速时) 随机减速概率
-    accelJitterForce: 0.1,  // (加速时) 随机减速强度
     transitionFrames: 350, // 场景切换所需帧数
     terrainBaseY: 0.9,  // 地面在画面中的位置 (0-1)
     playerInitialX: 0.2 // 玩家初始 X 坐标 (0-1, 相对于屏幕宽度)
@@ -214,14 +212,9 @@ function update(timestamp) {
     const p = state.player;
     p.acceleration = { x: 0, y: 0 }; // 每帧重置加速度
 
-    // a) 玩家推力与加速时的逻辑
+    // a) 玩家推力
     if (state.isAccelerating) {
         p.acceleration.x += CFG.playerThrust;
-
-        // 加速时随机减速
-        if (Math.random() < CFG.accelJitterChance) {
-            p.acceleration.x -= CFG.accelJitterForce;
-        }
     }
 
     // b) 风力 (持续变化)
@@ -262,11 +255,17 @@ function update(timestamp) {
     p.velocity.x *= CFG.dragCoefficient;
     p.velocity.y *= CFG.hoverDamping; // 垂直方向使用不同的阻尼
 
-    // c) 限制最大速度
+    // c) 限制最大/最小速度
     p.velocity.x = Math.min(p.velocity.x, CFG.playerMaxSpeed);
+
     // 确保速度不会过低，除非被风吹
     if (!state.isAccelerating && p.velocity.x < CFG.playerMinSpeed) {
         p.velocity.x = lerp(p.velocity.x, CFG.playerMinSpeed, 0.05);
+    }
+
+    // *** 关键修复：加速时绝不后退 ***
+    if (state.isAccelerating) {
+        p.velocity.x = Math.max(0, p.velocity.x);
     }
 
     // d) 根据速度更新位置
@@ -287,28 +286,30 @@ function update(timestamp) {
     const maxTrailLength = 3 + Math.floor(state.player.velocity.x * 1.5); // 拖尾长度随速度变化
     if (state.player.trail.length > maxTrailLength) state.player.trail.shift();
 
-    // 3. 场景导演与过渡 (*** 修正逻辑 ***)
-    const THEME_DURATION_FRAMES = CFG.transitionFrames * 3; // 每个主题持续的时间
-    const TRANSITION_START_TIME = THEME_DURATION_FRAMES - CFG.transitionFrames;
+    // 3. 场景导演与过渡
+    const THEME_DURATION_FRAMES = CFG.transitionFrames * 3;
+    const TRANSITION_START_FRAME = THEME_DURATION_FRAMES - CFG.transitionFrames;
 
     state.transitionTimer++;
 
+    // 检查是否应该开始过渡
+    if (state.transitionTimer === TRANSITION_START_FRAME) {
+        uiName.style.opacity = 0; // 开始淡出当前名称
+    }
+
     // 计算并存储过渡进度
-    const rawProgress = (state.transitionTimer - TRANSITION_START_TIME) / CFG.transitionFrames;
+    const rawProgress = (state.transitionTimer - TRANSITION_START_FRAME) / CFG.transitionFrames;
     state.transitionProgress = smoothstep(Math.max(0, Math.min(1, rawProgress)));
 
     // 当一个主题的完整持续时间结束后
     if (state.transitionTimer > THEME_DURATION_FRAMES) {
-        state.transitionTimer = 0; // 重置计时器
-        state.currentThemeIdx = state.nextThemeIdx; // 完成切换
+        state.transitionTimer = 0;
+        state.currentThemeIdx = state.nextThemeIdx;
         state.nextThemeIdx = (state.currentThemeIdx + 1) % THEMES.length;
 
-        // 更新UI，准备下一个场景的名称
-        uiName.style.opacity = 0;
-        setTimeout(() => {
-            uiName.innerText = THEMES[state.currentThemeIdx].name; // 显示当前场景的名字
-            uiName.style.opacity = 0.9;
-        }, 500);
+        // 更新文本并淡入
+        uiName.innerText = THEMES[state.currentThemeIdx].name;
+        uiName.style.opacity = 0.9;
     }
 
     // 4. 世界生成
