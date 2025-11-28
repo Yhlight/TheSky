@@ -48,6 +48,7 @@ const THEMES = [
 const CFG = {
     baseSpeed: 4,     // 默认速度
     boostSpeed: 18,   // 加速后速度
+    accelerationSpeed: 36, // 加速后速度
     gravity: 0.2,     // 玩家下落速度
     transitionFrames: 350, // 场景切换所需帧数
     terrainBaseY: 0.9  // 地面在画面中的位置 (0-1)
@@ -58,6 +59,7 @@ const state = {
     t: 0, // 全局时间
     speed: CFG.baseSpeed,
     targetSpeed: CFG.baseSpeed,
+    boostKeyDownTime: 0,
 
     currentThemeIdx: 0,
     nextThemeIdx: 1,
@@ -106,10 +108,18 @@ resize();
 // --- 核心交互与循环 ---
 
 window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') state.targetSpeed = CFG.boostSpeed;
+    if (e.code === 'Space' || e.code === 'KeyD') {
+        if (state.boostKeyDownTime === 0) {
+            state.boostKeyDownTime = Date.now();
+        }
+        state.targetSpeed = CFG.boostSpeed;
+    }
 });
 window.addEventListener('keyup', (e) => {
-    if (e.code === 'Space') state.targetSpeed = CFG.baseSpeed;
+    if (e.code === 'Space' || e.code === 'KeyD') {
+        state.boostKeyDownTime = 0;
+        state.targetSpeed = CFG.baseSpeed;
+    }
 });
 window.addEventListener('mousedown', () => state.targetSpeed = CFG.boostSpeed);
 window.addEventListener('mouseup', () => state.targetSpeed = CFG.baseSpeed);
@@ -121,6 +131,9 @@ function update() {
     state.t++;
 
     // 1. 速度平滑控制
+    if (state.boostKeyDownTime > 0 && Date.now() - state.boostKeyDownTime > 3000) {
+        state.targetSpeed = CFG.accelerationSpeed;
+    }
     state.speed = lerp(state.speed, state.targetSpeed, 0.05);
 
     // 2. 玩家垂直运动 (飞行控制)

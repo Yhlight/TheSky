@@ -4,18 +4,18 @@ This document outlines the development plan for the web game "TheSky". The goal 
 
 ## Phase 1: Project Setup & Core Mechanics
 
-- [ ] **Project Initialization:**
+- [X] **Project Initialization:**
     - [X] Set up the basic project structure with `index.html`, `style.css`, and `game.js`.
-    - [ ] Link the CSS and JavaScript files to the HTML file.
+    - [X] Link the CSS and JavaScript files to the HTML file.
 
-- [ ] **Implement Core Gameplay:**
-    - [ ] Implement the player-controlled crystal.
-    - [ ] Add player movement mechanics (rightward movement with 'D' key).
-    - [ ] Implement the acceleration feature (holding SPACE or 'D' for three seconds).
+- [X] **Implement Core Gameplay:**
+    - [X] Implement the player-controlled crystal.
+    - [X] Add player movement mechanics (rightward movement with 'D' key).
+    - [X] Implement the acceleration feature (holding SPACE or 'D' for three seconds).
 
-- [ ] **Basic Scene Management:**
-    - [ ] Implement the scene transition system from the example code.
-    - [ ] Add the initial three themes from `TheSky.md`: "SPRING AWAKENING," "GOLDEN RADIANCE," and "STARLIGHT VOID."
+- [X] **Basic Scene Management:**
+    - [X] Implement the scene transition system from the example code.
+    - [X] Add the initial three themes from `TheSky.md`: "SPRING AWAKENING," "GOLDEN RADIANCE," and "STARLIGHT VOID."
 
 ## Phase 2: Visual & Scene Enhancement
 
