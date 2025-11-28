@@ -8,6 +8,9 @@ const ctx = canvas.getContext('2d', { alpha: false });
 const uiName = document.getElementById('scene-name');
 
 let w, h;
+let animationFrameId = null; // 用于暂停/恢复
+let lastTimestamp = 0;
+let isPaused = false;
 
 // --- 场景定义 (THEMES) ---
 // 颜色格式为 HEX
@@ -63,8 +66,10 @@ const CFG = {
     windForceScale: 0.12,  // 风力强度
     hoverForce: 0.01,   // 悬浮/回中力
     hoverDamping: 0.95, // 悬浮阻尼，防止过度振荡
-    gustChance: 0.003,  // 阵风发生概率
-    gustForce: 1.2,     // 阵风强度
+    gustChance: 0.003,  // (巡航时) 阵风发生概率
+    gustForce: 1.2,     // (巡航时) 阵风强度
+    accelJitterChance: 0.05, // (加速时) 随机减速概率
+    accelJitterForce: 0.1,  // (加速时) 随机减速强度
     transitionFrames: 350, // 场景切换所需帧数
     terrainBaseY: 0.9,  // 地面在画面中的位置 (0-1)
     playerInitialX: 0.2 // 玩家初始 X 坐标 (0-1, 相对于屏幕宽度)
@@ -167,11 +172,40 @@ window.addEventListener('touchstart', (e) => { e.preventDefault(); state.isAccel
 window.addEventListener('touchend', (e) => { e.preventDefault(); state.isAccelerating = false; });
 
 
+// --- 游戏循环与暂停/恢复 ---
 function gameLoop(timestamp) {
-    update(timestamp);
+    if (isPaused) {
+        lastTimestamp = timestamp; // 存储暂停时的时刻
+        return;
+    }
+
+    // 计算增量时间 (delta time)，尽管当前未使用，但这是良好实践
+    const deltaTime = timestamp - lastTimestamp;
+    lastTimestamp = timestamp;
+
+    update(timestamp); // 传递时间戳以驱动动画
     draw(timestamp);
-    requestAnimationFrame(gameLoop);
+
+    animationFrameId = requestAnimationFrame(gameLoop);
 }
+
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        isPaused = true;
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+    } else {
+        isPaused = false;
+        // 立即开始新的循环，而不是等待下一帧
+        if (!animationFrameId) {
+            lastTimestamp = performance.now(); // 重置时间戳以避免大的跳跃
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+    }
+});
+
 
 function update(timestamp) {
     state.t++; // 仍然保留 t 用于一些基于帧的简单动画
@@ -180,9 +214,14 @@ function update(timestamp) {
     const p = state.player;
     p.acceleration = { x: 0, y: 0 }; // 每帧重置加速度
 
-    // a) 玩家推力
+    // a) 玩家推力与加速时的逻辑
     if (state.isAccelerating) {
         p.acceleration.x += CFG.playerThrust;
+
+        // 加速时随机减速
+        if (Math.random() < CFG.accelJitterChance) {
+            p.acceleration.x -= CFG.accelJitterForce;
+        }
     }
 
     // b) 风力 (持续变化)
@@ -196,8 +235,8 @@ function update(timestamp) {
     const displacementY = hoverTargetY - p.y;
     p.acceleration.y += displacementY * CFG.hoverForce;
 
-    // d) 随机阵风 (被吹回头)
-    if (Math.random() < CFG.gustChance) {
+    // d) 巡航时的随机阵风 (被吹回头)
+    if (!state.isAccelerating && Math.random() < CFG.gustChance) {
         p.acceleration.x -= CFG.gustForce;
 
         // 视觉效果：生成一阵反向粒子
@@ -231,7 +270,7 @@ function update(timestamp) {
     }
 
     // d) 根据速度更新位置
-    p.x += p.velocity.x;
+    // p.x 由下面的 lerp 平滑处理，以避免抖动
     p.y += p.velocity.y;
 
     // 修正玩家的横向位置，使其感觉在“前进”而不是“移动”
@@ -579,4 +618,5 @@ function initUI() {
 
 // 启动循环
 initUI();
-gameLoop(0);
+lastTimestamp = performance.now();
+animationFrameId = requestAnimationFrame(gameLoop);
