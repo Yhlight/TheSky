@@ -14,42 +14,42 @@ let w, h;
 const THEMES = [
     {
         name: "SPRING AWAKENING",
-        sky: ['#42a5f5', '#e91e63'], // 蓝到粉
-        sun: '#ffcdd2', sunSize: 60,
+        sky: ['#42a5f5', '#e91e63'],
+        sun: '#ffcdd2', sunSize: 60, sunY: 0.3, // Y位置 (0-1)
         mountFar: '#90caf9', mountNear: '#c8e6c9',
         ground: '#43a047',
-        accent: '#ffffff', // 粒子/光芒色
-        fogColor: '#f8bbd0', // 粉雾
+        accent: '#ffffff',
+        fogColor: '#f8bbd0', fogAlpha: 0.15, // 雾气透明度
         propType: 'petals'
     },
     {
         name: "GOLDEN RADIANCE",
-        sky: ['#ff9800', '#ffeb3b'], // 橙到黄
-        sun: '#ffcc80', sunSize: 100,
+        sky: ['#ff9800', '#ffeb3b'],
+        sun: '#ffcc80', sunSize: 100, sunY: 0.4,
         mountFar: '#ffb74d', mountNear: '#795548',
         ground: '#6d4c41',
         accent: '#ffe0b2',
-        fogColor: '#ffecb3', // 黄雾
+        fogColor: '#ffecb3', fogAlpha: 0.2,
         propType: 'ruins'
     },
     {
         name: "STARLIGHT VOID",
-        sky: ['#1a237e', '#4527a0'], // 深蓝到紫
-        sun: '#bbdefb', sunSize: 40, // 月亮
+        sky: ['#1a237e', '#4527a0'],
+        sun: '#bbdefb', sunSize: 40, sunY: 0.25,
         mountFar: '#3f51b5', mountNear: '#673ab7',
         ground: '#303f9f',
         accent: '#b3e5fc',
-        fogColor: '#9fa8da', // 蓝紫雾
+        fogColor: '#9fa8da', fogAlpha: 0.1,
         propType: 'crystals'
     },
     {
         name: "AUTUMN EMBRACE",
-        sky: ['#ff8a65', '#ffb74d'], // 深橙到浅橙
-        sun: '#fff3e0', sunSize: 70,
+        sky: ['#ff8a65', '#ffb74d'],
+        sun: '#fff3e0', sunSize: 70, sunY: 0.35,
         mountFar: '#d7ccc8', mountNear: '#a1887f',
         ground: '#8d6e63',
         accent: '#ffccbc',
-        fogColor: '#ffcc80', // 橙色雾
+        fogColor: '#ffcc80', fogAlpha: 0.18,
         propType: 'leaf'
     }
 ];
@@ -131,6 +131,8 @@ class ValueNoise {
     }
 }
 const terrainNoise = new ValueNoise();
+const windNoiseX = new ValueNoise(Math.random());
+const windNoiseY = new ValueNoise(Math.random());
 
 
 // --- 初始化 ---
@@ -158,14 +160,31 @@ window.addEventListener('touchend', (e) => { e.preventDefault(); state.isAcceler
 
 
 function updatePlayer(timestamp) {
-    // 基于时间的sin函数来创建平滑的上下悬浮效果，防止“掉落”
-    // 使用 timestamp (毫秒) 代替 t (帧数) 来获得更平滑、独立于帧率的动画
-    state.player.y = h / 2 + Math.sin(timestamp / 500) * h * 0.05;
+    // 基础悬浮效果
+    let baseY = h / 2 + Math.sin(timestamp / 500) * h * 0.05;
+
+    // 风力效果
+    const windX = (windNoiseX.get(timestamp / 1000) - 0.5) * 4; // 水平风 (-2 to 2)
+    const windY = (windNoiseY.get(timestamp / 800) - 0.5) * 3; // 垂直风 (-1.5 to 1.5)
+
+    // 将风力应用到速度上
+    state.player.vx += windX * 0.05;
+    state.player.vy = windY;
+
+    // 更新位置
+    const speedProgress = (state.player.vx - CFG.playerMinSpeed) / (CFG.playerMaxSpeed - CFG.playerMinSpeed);
+    const offsetX = lerp(0, w * 0.1, speedProgress); // 加速时向右偏移
+    state.player.x = w * CFG.playerInitialX + offsetX;
+    state.player.y = baseY + state.player.vy * 20;
+
+    // 边界检查，防止玩家移出屏幕
+    if (state.player.y < h * 0.1) state.player.y = h * 0.1;
+    if (state.player.y > h * 0.9) state.player.y = h * 0.9;
 }
 
 function gameLoop(timestamp) {
     update(timestamp);
-    draw();
+    draw(timestamp);
     requestAnimationFrame(gameLoop);
 }
 
@@ -185,14 +204,9 @@ function update(timestamp) {
     // 2. 玩家垂直运动 (悬浮效果)
     updatePlayer(timestamp);
 
-    // *** 拖尾BUG修复：更新所有现有拖尾点的x坐标，使其随世界移动 ***
-    for (const point of state.player.trail) {
-        point.x -= state.player.vx;
-    }
-
     // 添加新的拖尾点到玩家当前位置
     state.player.trail.push({ x: state.player.x, y: state.player.y, speed: state.player.vx });
-    const maxTrailLength = 10 + Math.floor(state.player.vx * 2.5); // 拖尾长度随速度变化
+    const maxTrailLength = 3 + Math.floor(state.player.vx * 1.5); // 拖尾长度随速度变化
     if (state.player.trail.length > maxTrailLength) state.player.trail.shift();
 
     // 3. 场景导演与过渡 (*** 修正逻辑 ***)
@@ -223,7 +237,7 @@ function generateWorldEntities() {
     // 根据速度调整生成密度
     const speedRange = CFG.playerMaxSpeed - CFG.playerMinSpeed;
     const speedProgress = speedRange > 0 ? (state.player.vx - CFG.playerMinSpeed) / speedRange : 0;
-    const particleDensity = lerp(0.05, 0.5, speedProgress);
+    const particleDensity = lerp(0.05, 0.3, speedProgress);
 
     // Props (相对稀疏)
     if (Math.random() < 0.015) {
@@ -275,7 +289,7 @@ function generateWorldEntities() {
     }
 }
 
-function draw() {
+function draw(timestamp) {
     const THEME_DURATION_FRAMES = CFG.transitionFrames * 3;
     const TRANSITION_START_TIME = THEME_DURATION_FRAMES - CFG.transitionFrames;
 
@@ -299,7 +313,9 @@ function draw() {
         ground: lerpColor(T1.ground, T2.ground, progress),
         accent: lerpColor(T1.accent, T2.accent, progress),
         fogColor: lerpColor(T1.fogColor, T2.fogColor, progress),
-        sunSize: lerp(T1.sunSize, T2.sunSize, progress)
+        sunSize: lerp(T1.sunSize, T2.sunSize, progress),
+        sunY: lerp(T1.sunY, T2.sunY, progress),
+        fogAlpha: lerp(T1.fogAlpha, T2.fogAlpha, progress)
     };
 
     // --- 1. 天空背景 ---
@@ -312,7 +328,7 @@ function draw() {
     // --- 2. 太阳/月亮 (Bloom Glow) ---
     ctx.save();
     const sunX = w * 0.8;
-    const sunY = lerp(h * 0.3, h * 0.5, progress);
+    const sunY = h * C.sunY; // 使用插值后的 Y 坐标
 
     ctx.globalCompositeOperation = 'screen';
     const safeR0 = Math.max(1, C.sunSize / 2);
@@ -353,7 +369,7 @@ function draw() {
     // --- 8. 体积雾/柔光层 ---
     ctx.globalCompositeOperation = 'overlay';
     ctx.fillStyle = C.fogColor;
-    ctx.globalAlpha = 0.1 + progress * 0.1; // 过渡时雾气变浓
+    ctx.globalAlpha = C.fogAlpha; // 使用插值后的 Alpha
     ctx.fillRect(0, 0, w, h);
 
     ctx.globalCompositeOperation = 'source-over';
@@ -509,7 +525,7 @@ function drawParticles(ctx, C, alphaScale) {
     state.particles.forEach(p => {
         ctx.globalAlpha = p.life * alphaScale;
         // 速度越快，粒子被拉伸越长（视觉加速效果）
-        const length = 1 + p.size * (state.player.vx / CFG.playerMaxSpeed) * 5;
+        const length = 1 + p.size * (state.player.vx / CFG.playerMaxSpeed) * 1.5;
 
         ctx.fillRect(p.x, p.y, length, Math.max(0.5, p.size / 2));
     });
