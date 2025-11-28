@@ -1,0 +1,78 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #000;
+    font-family: 'Cinzel', serif;
+    user-select: none;
+}
+
+canvas {
+    display: block;
+}
+
+/* 电影感滤镜层 */
+#fx-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+    /* 径向暗角，更深邃 */
+    background: radial-gradient(circle, transparent 40%, rgba(0, 0, 0, 0.7) 100%);
+}
+
+/* 胶片噪点 */
+#fx-layer::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.05;
+    background-image: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noise)"/%3E%3C/svg%3E');
+    animation: grain 0.5s steps(5) infinite;
+}
+
+#ui {
+    position: absolute;
+    top: 40px;
+    width: 100%;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.9);
+    pointer-events: none;
+    z-index: 20;
+    transition: opacity 1s;
+}
+
+h1 {
+    font-weight: 200;
+    letter-spacing: 12px;
+    font-size: 1.5rem;
+    text-transform: uppercase;
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.7);
+}
+
+.guide {
+    font-size: 10px;
+    opacity: 0.6;
+    letter-spacing: 2px;
+    margin-top: 10px;
+    animation: pulse 3s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 0.4;
+    }
+
+    50% {
+        opacity: 0.8;
+    }
+
+    100% {
+        opacity: 0.4;
+    }
+}
