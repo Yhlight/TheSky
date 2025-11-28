@@ -63,11 +63,9 @@ const CFG = {
     playerMaxSpeed: 20,   // 加速时最大速度
     playerThrust: 0.25,    // 玩家加速时的推力
     dragCoefficient: 0.98, // 阻力系数 (越接近1，速度衰减越慢)
-    windForceScale: 0.12,  // 风力强度
+    windForceScale: 0.15,  // 風力強度（略微增强以实现速度波动）
     hoverForce: 0.01,   // 悬浮/回中力
     hoverDamping: 0.95, // 悬浮阻尼，防止过度振荡
-    gustChance: 0.003,  // (巡航时) 阵风发生概率
-    gustForce: 1.2,     // (巡航时) 阵风强度
     transitionFrames: 350, // 场景切换所需帧数
     terrainBaseY: 0.9,  // 地面在画面中的位置 (0-1)
     playerInitialX: 0.2 // 玩家初始 X 坐标 (0-1, 相对于屏幕宽度)
@@ -227,24 +225,6 @@ function update(timestamp) {
     const hoverTargetY = h / 2;
     const displacementY = hoverTargetY - p.y;
     p.acceleration.y += displacementY * CFG.hoverForce;
-
-    // d) 巡航时的随机阵风 (被吹回头)
-    if (!state.isAccelerating && Math.random() < CFG.gustChance) {
-        p.acceleration.x -= CFG.gustForce;
-
-        // 视觉效果：生成一阵反向粒子
-        for (let i = 0; i < 15; i++) {
-            state.particles.push({
-                x: p.x + random(-20, 20),
-                y: p.y + random(-20, 20),
-                vx: random(5, 10), // 向右移动
-                vy: random(-2, 2),
-                life: random(0.5, 1),
-                size: random(1, 3),
-                type: THEMES[state.currentThemeIdx].propType
-            });
-        }
-    }
 
     // --- 2. 更新速度和位置 ---
     // a) 根据加速度更新速度
@@ -585,12 +565,23 @@ function drawPlayer(ctx, C) {
     ctx.save();
     ctx.translate(p.x, p.y);
 
+    // 根据垂直速度旋转
+    const angle = Math.atan2(p.velocity.y, 20); // 20 是一个魔数，用于控制旋转的灵敏度
+    ctx.rotate(angle);
+
     // 强烈的辉光
     ctx.shadowBlur = 50;
     ctx.shadowColor = 'white';
     ctx.fillStyle = C.accent;
-    ctx.rotate(state.t * 0.05);
-    ctx.fillRect(-10, -10, 20, 20);
+
+    // 绘制新的晶体形状
+    ctx.beginPath();
+    ctx.moveTo(15, 0); // 尖端
+    ctx.lineTo(-15, -10); // 左翼
+    ctx.lineTo(-10, 0); // 尾部中心
+    ctx.lineTo(-15, 10); // 右翼
+    ctx.closePath();
+    ctx.fill();
 
     ctx.restore();
 }
