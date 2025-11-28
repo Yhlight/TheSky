@@ -144,8 +144,17 @@ window.addEventListener('keyup', (e) => {
 });
 window.addEventListener('mousedown', () => state.targetSpeed = CFG.boostSpeed);
 window.addEventListener('mouseup', () => state.targetSpeed = CFG.baseSpeed);
-window.addEventListener('touchstart', (e) => { e.preventDefault(); state.targetSpeed = CFG.boostSpeed; }, { passive: false });
-window.addEventListener('touchend', (e) => { e.preventDefault(); state.targetSpeed = CFG.baseSpeed; });
+window.addEventListener('mouseup', () => {
+    if (!state.isBoostLocked) {
+        state.targetSpeed = CFG.baseSpeed;
+    }
+});
+window.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    if (!state.isBoostLocked) {
+        state.targetSpeed = CFG.baseSpeed;
+    }
+});
 
 
 function update() {
@@ -155,12 +164,30 @@ function update() {
     state.speed = lerp(state.speed, state.targetSpeed, 0.05);
 
     // 2. 玩家垂直运动 (飞行控制)
-    const targetY = h * 0.5 - (state.speed - CFG.baseSpeed) * 3; // 速度越快，Y轴中心点越向上
-    const springiness = 0.005 * state.speed;
+    // a. 施加重力
+    state.player.vy += CFG.gravity;
 
-    state.player.vy += (targetY - state.player.y) * springiness; // 弹性跟随
-    state.player.vy *= 0.85; // 阻力
+    // b. 施加向上推力 (当鼠标/触摸/按键按下时)
+    if (state.targetSpeed > CFG.baseSpeed) {
+        state.player.vy -= 0.6; // 向上推力值，可调整
+    }
+
+    // c. 垂直速度限制 (避免速度过快)
+    state.player.vy = Math.max(-10, Math.min(10, state.player.vy));
+
+    // d. 更新位置
     state.player.y += state.player.vy;
+
+    // e. 边界检测
+    const groundLevel = h * CFG.terrainBaseY - 20; // 略高于地面
+    if (state.player.y > groundLevel) {
+        state.player.y = groundLevel;
+        state.player.vy *= -0.3; // 轻微反弹
+    }
+    if (state.player.y < h * 0.1) {
+        state.player.y = h * 0.1;
+        state.player.vy = 0;
+    }
 
     // 玩家拖尾
     state.player.trail.push({ x: state.player.x, y: state.player.y, speed: state.speed });
@@ -230,7 +257,8 @@ function generateWorldEntities() {
 }
 
 function draw() {
-    const P = state.transitionTimer / CFG.transitionFrames;
+    // 确保 P 值在 0-1 之间
+    const P = Math.max(0, Math.min(1, state.transitionTimer / CFG.transitionFrames));
     // 使用 Smoothstep 函数得到柔和的过渡进度
     const progress = (state.currentThemeIdx === state.nextThemeIdx) ? 0 : smoothstep(P);
 
