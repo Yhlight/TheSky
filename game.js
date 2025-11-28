@@ -159,11 +159,21 @@ function update(currentTime) {
     }
 
 
-    // 2. 风力模拟
+    // 2. 风力模拟 (优化版)
     state.wind.timer -= dt;
     if (state.wind.timer <= 0) {
         // 当计时器结束，设定一个新的风力目标和下一个变化时间
-        state.wind.target = random(-25, 25); // 风力范围：-25 (向左) 到 +25 (向右)
+        if (state.targetSpeed > CFG.baseSpeed) {
+            // 加速时，风是轻微的正向扰动，绝不后退
+            state.wind.target = random(0, 1.5);
+        } else {
+            // 漂移时，后退是小概率事件
+            if (Math.random() < 0.15) { // 15% 概率逆风
+                state.wind.target = random(-1.5, -0.5);
+            } else { // 85% 概率顺风
+                state.wind.target = random(-0.5, 2.5);
+            }
+        }
         state.wind.timer = state.wind.nextChange = random(100, 300); // 下一次变化在100-300帧后
     }
     // 平滑地将当前风力过渡到目标风力
@@ -176,7 +186,13 @@ function update(currentTime) {
     // 水平位置：加速时向右移动，减速时返回
     const targetX = w * (state.targetSpeed > CFG.baseSpeed ? 0.35 : 0.2);
     // 玩家位置同时受到 lerp 缓动和风力的影响
-    state.player.x = lerp(state.player.x, targetX, 0.04 * dt) + state.wind.current * dt;
+    const windForce = state.wind.current * dt;
+    state.player.x = lerp(state.player.x, targetX, 0.04 * dt) + windForce;
+
+    // 限制玩家的活动范围在屏幕的特定区域内，防止漂移过远 (15% -> 40% = 25% 宽度)
+    const minX = w * 0.15;
+    const maxX = w * 0.40;
+    state.player.x = Math.max(minX, Math.min(maxX, state.player.x));
 
     // 垂直位置：轻微的上下浮动，而不是基于速度的剧烈升降
     state.player.y = h * 0.5 + Math.sin(state.t * 0.08) * 8;
