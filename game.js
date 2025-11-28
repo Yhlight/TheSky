@@ -152,17 +152,24 @@ function update(timestamp) {
     const maxTrailLength = 10 + Math.floor(state.player.vx * 2.5); // 拖尾长度随速度变化
     if (state.player.trail.length > maxTrailLength) state.player.trail.shift();
 
-    // 3. 场景导演与过渡
+    // 3. 场景导演与过渡 (*** 修正逻辑 ***)
+    const THEME_DURATION_FRAMES = CFG.transitionFrames * 3; // 每个主题持续的时间
+    const TRANSITION_START_TIME = THEME_DURATION_FRAMES - CFG.transitionFrames;
+
     state.transitionTimer++;
-    if (state.transitionTimer > CFG.transitionFrames * 4) {
-        state.transitionTimer = 0;
-        state.currentThemeIdx = state.nextThemeIdx;
+
+    // 当一个主题的完整持续时间结束后
+    if (state.transitionTimer > THEME_DURATION_FRAMES) {
+        state.transitionTimer = 0; // 重置计时器
+        state.currentThemeIdx = state.nextThemeIdx; // 完成切换
         state.nextThemeIdx = (state.currentThemeIdx + 1) % THEMES.length;
+
+        // 更新UI，准备下一个场景的名称
         uiName.style.opacity = 0;
         setTimeout(() => {
-            uiName.innerText = THEMES[state.nextThemeIdx].name;
+            uiName.innerText = THEMES[state.currentThemeIdx].name; // 显示当前场景的名字
             uiName.style.opacity = 0.9;
-        }, 1000);
+        }, 500);
     }
 
     // 4. 世界生成
@@ -226,8 +233,13 @@ function generateWorldEntities() {
 }
 
 function draw() {
-    const P = state.transitionTimer / CFG.transitionFrames;
-    const clampedP = Math.max(0, Math.min(1, P)); // 将 P 限制在 [0, 1]
+    const THEME_DURATION_FRAMES = CFG.transitionFrames * 3;
+    const TRANSITION_START_TIME = THEME_DURATION_FRAMES - CFG.transitionFrames;
+
+    // 计算真实的过渡进度 (0 to 1)
+    const transitionProgress = (state.transitionTimer - TRANSITION_START_TIME) / CFG.transitionFrames;
+    const clampedP = Math.max(0, Math.min(1, transitionProgress)); // 将进度限制在 [0, 1]
+
     // 使用 Smoothstep 函数得到柔和的过渡进度
     const progress = (state.currentThemeIdx === state.nextThemeIdx) ? 0 : smoothstep(clampedP);
 
