@@ -41,6 +41,16 @@ const THEMES = [
         accent: '#b3e5fc',
         fogColor: '#9fa8da', // 蓝紫雾
         propType: 'crystals'
+    },
+    {
+        name: "SCARLET DUNES",
+        sky: ['#ff8a65', '#f4511e'], // 橙红到深红
+        sun: '#fff9c4', sunSize: 120, // 炽热的太阳
+        mountFar: '#ffccbc', mountNear: '#e64a19',
+        ground: '#bf360c',
+        accent: '#ffffff',
+        fogColor: '#ffab91', // 橙色雾气
+        propType: 'ruins' // 复用废墟道具
     }
 ];
 
@@ -159,25 +169,31 @@ function update(currentTime) {
 
     // 3. 场景导演与过渡
     state.transitionTimer += dt;
-    if (state.transitionTimer > CFG.transitionFrames * 4) {
-        state.transitionTimer = 0;
+    // 当过渡动画完成时 (transitionTimer 达到 transitionFrames)
+    if (state.transitionTimer >= CFG.transitionFrames) {
+        // 将当前主题设置为之前的下一个主题
         state.currentThemeIdx = state.nextThemeIdx;
+        // 计算新的下一个主题
         state.nextThemeIdx = (state.currentThemeIdx + 1) % THEMES.length;
+        // 重置计时器，开始新的等待周期
+        state.transitionTimer = -CFG.transitionFrames * 3; // 等待一段时间再开始下一次过渡
+
+        // 更新UI
         uiName.style.opacity = 0;
         setTimeout(() => {
-            uiName.innerText = THEMES[state.nextThemeIdx].name;
+            uiName.innerText = THEMES[state.currentThemeIdx].name; // 显示当前场景的名称
             uiName.style.opacity = 0.9;
         }, 1000);
     }
 
     // 4. 世界生成
-    generateWorldEntities();
+    generateWorldEntities(dt);
 
     draw();
     requestAnimationFrame(update);
 }
 
-function generateWorldEntities() {
+function generateWorldEntities(dt) {
     // 根据速度调整生成密度
     const particleDensity = lerp(0.05, 0.5, (state.speed - CFG.baseSpeed) / (CFG.boostSpeed - CFG.baseSpeed));
 
@@ -208,15 +224,20 @@ function generateWorldEntities() {
         });
     }
 
-    // 更新实体位置和清理
-    state.props = state.props.filter(o => { o.x -= state.speed * dt; return o.x > -200; });
-    state.particles = state.particles.filter(p => {
-        // 粒子受速度影响，向后拉伸
+    // --- 更新与清理分离 ---
+    // 1. 更新每个实体的位置和状态
+    state.props.forEach(o => {
+        o.x -= state.speed * dt;
+    });
+    state.particles.forEach(p => {
         p.x += p.vx * lerp(1, 1.5, (state.speed / CFG.boostSpeed)) * dt;
         p.y += p.vy * dt;
-        p.life -= (0.01 + state.speed * 0.001) * dt; // 速度越快，粒子消失越快
-        return p.life > 0;
+        p.life -= (0.01 + state.speed * 0.001) * dt;
     });
+
+    // 2. 过滤掉“死亡”的实体
+    state.props = state.props.filter(o => o.x > -200);
+    state.particles = state.particles.filter(p => p.life > 0);
 }
 
 function draw() {
