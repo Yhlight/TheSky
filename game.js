@@ -46,8 +46,10 @@ const THEMES = [
 
 // --- 配置 ---
 const CFG = {
-    baseSpeed: 4,     // 默认速度
-    boostSpeed: 18,   // 加速后速度
+    playerMinSpeed: 4,    // 基础巡航速度
+    playerMaxSpeed: 18,   // 加速时最大速度
+    playerAcceleration: 0.2, // 加速的加速度
+    playerDeceleration: 0.1, // 减速的加速度
     gravity: 0.2,     // 玩家下落速度
     transitionFrames: 350, // 场景切换所需帧数
     terrainBaseY: 0.9,  // 地面在画面中的位置 (0-1)
@@ -57,15 +59,14 @@ const CFG = {
 // --- 状态管理 ---
 const state = {
     t: 0, // 全局时间
-    speed: CFG.baseSpeed,
-    targetSpeed: CFG.baseSpeed,
+    isAccelerating: false, // 是否正在加速
 
     currentThemeIdx: 0,
     nextThemeIdx: 1,
     transitionTimer: 0,
 
     player: {
-        x: 0, y: 0, vy: 0, trail: []
+        x: 0, y: 0, vx: CFG.playerMinSpeed, vy: 0, trail: []
     },
 
     props: [],
@@ -107,22 +108,29 @@ resize();
 // --- 核心交互与循环 ---
 
 window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' || e.code === 'KeyD') state.targetSpeed = CFG.boostSpeed;
+    if (e.code === 'Space' || e.code === 'KeyD') state.isAccelerating = true;
 });
 window.addEventListener('keyup', (e) => {
-    if (e.code === 'Space' || e.code === 'KeyD') state.targetSpeed = CFG.baseSpeed;
+    if (e.code === 'Space' || e.code === 'KeyD') state.isAccelerating = false;
 });
-window.addEventListener('mousedown', () => state.targetSpeed = CFG.boostSpeed);
-window.addEventListener('mouseup', () => state.targetSpeed = CFG.baseSpeed);
-window.addEventListener('touchstart', (e) => { e.preventDefault(); state.targetSpeed = CFG.boostSpeed; }, { passive: false });
-window.addEventListener('touchend', (e) => { e.preventDefault(); state.targetSpeed = CFG.baseSpeed; });
+window.addEventListener('mousedown', () => state.isAccelerating = true);
+window.addEventListener('mouseup', () => state.isAccelerating = false);
+window.addEventListener('touchstart', (e) => { e.preventDefault(); state.isAccelerating = true; }, { passive: false });
+window.addEventListener('touchend', (e) => { e.preventDefault(); state.isAccelerating = false; });
 
 
 function update() {
     state.t++;
 
-    // 1. 速度平滑控制
-    state.speed = lerp(state.speed, state.targetSpeed, 0.05);
+    // 1. 玩家水平速度物理模拟
+    const targetSpeed = state.isAccelerating ? CFG.playerMaxSpeed : CFG.playerMinSpeed;
+    if (state.player.vx < targetSpeed) {
+        state.player.vx += CFG.playerAcceleration;
+        state.player.vx = Math.min(state.player.vx, targetSpeed);
+    } else if (state.player.vx > targetSpeed) {
+        state.player.vx -= CFG.playerDeceleration;
+        state.player.vx = Math.max(state.player.vx, targetSpeed);
+    }
 
     // 2. 玩家垂直运动 (飞行控制)
     state.player.vy += CFG.gravity;
@@ -135,8 +143,8 @@ function update() {
     }
 
     // 玩家拖尾
-    state.player.trail.push({ x: state.player.x, y: state.player.y, speed: state.speed });
-    const maxTrailLength = 10 + Math.floor(state.speed * 2.5); // 拖尾长度随速度变化
+    state.player.trail.push({ x: state.player.x, y: state.player.y, speed: state.player.vx });
+    const maxTrailLength = 10 + Math.floor(state.player.vx * 2.5); // 拖尾长度随速度变化
     if (state.player.trail.length > maxTrailLength) state.player.trail.shift();
 
     // 3. 场景导演与过渡
@@ -161,7 +169,9 @@ function update() {
 
 function generateWorldEntities() {
     // 根据速度调整生成密度
-    const particleDensity = lerp(0.05, 0.5, (state.speed - CFG.baseSpeed) / (CFG.boostSpeed - CFG.baseSpeed));
+    const speedRange = CFG.playerMaxSpeed - CFG.playerMinSpeed;
+    const speedProgress = speedRange > 0 ? (state.player.vx - CFG.playerMinSpeed) / speedRange : 0;
+    const particleDensity = lerp(0.05, 0.5, speedProgress);
 
     // Props (相对稀疏)
     if (Math.random() < 0.015) {
@@ -182,7 +192,7 @@ function generateWorldEntities() {
         state.particles.push({
             x: w + 10,
             y: random(0, h),
-            vx: -random(state.speed * 0.8, state.speed * 1.2),
+            vx: -random(state.player.vx * 0.8, state.player.vx * 1.2),
             vy: random(-1, 1),
             life: 1,
             size: random(1, 3),
@@ -191,12 +201,12 @@ function generateWorldEntities() {
     }
 
     // 更新实体位置和清理
-    state.props = state.props.filter(o => { o.x -= state.speed; return o.x > -200; });
+    state.props = state.props.filter(o => { o.x -= state.player.vx; return o.x > -200; });
     state.particles = state.particles.filter(p => {
         // 粒子受速度影响，向后拉伸
-        p.x += p.vx * lerp(1, 1.5, (state.speed / CFG.boostSpeed));
+        p.x += p.vx * lerp(1, 1.5, (state.player.vx / CFG.playerMaxSpeed));
         p.y += p.vy;
-        p.life -= 0.01 + state.speed * 0.001; // 速度越快，粒子消失越快
+        p.life -= 0.01 + state.player.vx * 0.001; // 速度越快，粒子消失越快
         return p.life > 0;
     });
 }
@@ -256,8 +266,8 @@ function draw() {
     ctx.restore();
 
     // --- 3. 多层视差地形 ---
-    drawTerrain(ctx, C.mountFar, 0.2, 80, h * 0.6, state.t, state.speed);
-    drawTerrain(ctx, C.mountNear, 0.4, 50, h * 0.75, state.t, state.speed);
+    drawTerrain(ctx, C.mountFar, 0.2, 80, h * 0.6, state.t, state.player.vx);
+    drawTerrain(ctx, C.mountNear, 0.4, 50, h * 0.75, state.t, state.player.vx);
 
     // --- 4. 远景粒子 (速度线) ---
     drawParticles(ctx, C, 0.5); // 远景粒子更透明，产生速度线效果
@@ -303,7 +313,7 @@ function drawGroundAndProps(ctx, C) {
     ctx.beginPath();
     ctx.moveTo(0, h);
     const groundBase = h * CFG.terrainBaseY;
-    const scroll = state.t * state.speed;
+    const scroll = state.t * state.player.vx;
 
     // 地面线条 (最快的 parallax 速度)
     for (let x = 0; x <= w; x += 20) {
@@ -408,7 +418,7 @@ function drawParticles(ctx, C, alphaScale) {
     state.particles.forEach(p => {
         ctx.globalAlpha = p.life * alphaScale;
         // 速度越快，粒子被拉伸越长（视觉加速效果）
-        const length = 1 + p.size * (state.speed / CFG.boostSpeed) * 5;
+        const length = 1 + p.size * (state.player.vx / CFG.playerMaxSpeed) * 5;
 
         ctx.fillRect(p.x, p.y, length, Math.max(0.5, p.size / 2));
     });
