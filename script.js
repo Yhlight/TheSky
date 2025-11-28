@@ -86,6 +86,8 @@ const CFG = {
 // --- 状态管理 ---
 const state = {
     t: 0, // 全局时间
+    lastTime: 0,
+    dt: 0,
     speed: CFG.baseSpeed,
     targetSpeed: CFG.baseSpeed,
 
@@ -185,20 +187,31 @@ window.addEventListener('keyup', (e) => {
 });
 
 
-function update() {
-    state.t++;
+function update(currentTime) {
+    if (state.lastTime > 0) {
+        state.dt = (currentTime - state.lastTime) / (1000 / 60); // 标准化为60FPS
+    }
+    state.lastTime = currentTime;
+
+    // 如果dt太大（例如，标签页在后台），则跳过这一帧
+    if (state.dt > 4) {
+        requestAnimationFrame(update);
+        return;
+    }
+
+    state.t += state.dt;
 
     // 1. 速度平滑控制
-    state.speed = lerp(state.speed, state.targetSpeed, 0.05);
+    state.speed = lerp(state.speed, state.targetSpeed, 0.05 * state.dt);
 
     // 2. 玩家垂直运动 (飞行控制)
     // BUG 修复：解除 Y 轴位置与速度的关联，实现纯粹的水平加速
     const targetY = h * 0.5;
-    const springiness = 0.005 * state.speed;
+    const springiness = 0.005 * state.speed * state.dt;
 
     state.player.vy += (targetY - state.player.y) * springiness; // 弹性跟随
-    state.player.vy *= 0.85; // 阻力
-    state.player.y += state.player.vy;
+    state.player.vy *= Math.pow(0.85, state.dt); // 阻力
+    state.player.y += state.player.vy * state.dt;
 
     // 玩家拖尾
     state.player.trail.push({ x: state.player.x, y: state.player.y, speed: state.speed });
@@ -206,7 +219,7 @@ function update() {
     if (state.player.trail.length > maxTrailLength) state.player.trail.shift();
 
     // 3. 场景导演与过渡
-    state.transitionTimer++;
+    state.transitionTimer += state.dt;
     if (state.transitionTimer > CFG.transitionFrames * 4) {
         state.transitionTimer = 0;
         state.currentThemeIdx = state.nextThemeIdx;
@@ -233,13 +246,17 @@ function generateWorldEntities() {
     if (Math.random() < 0.015) {
         const T = THEMES[state.currentThemeIdx];
         if (T.propType !== 'none') {
-            state.props.push({
+            const newProp = {
                 x: w + 100,
                 y: h * CFG.terrainBaseY - random(50, 150),
                 type: T.propType,
                 scale: random(0.8, 1.5),
                 rot: random(0, Math.PI * 2)
-            });
+            };
+            if (newProp.type === 'stars') {
+                newProp.alpha = random(0.2, 1.0);
+            }
+            state.props.push(newProp);
         }
     }
 
@@ -257,12 +274,12 @@ function generateWorldEntities() {
     }
 
     // 更新实体位置和清理
-    state.props = state.props.filter(o => { o.x -= state.speed; return o.x > -200; });
+    state.props = state.props.filter(o => { o.x -= state.speed * state.dt; return o.x > -200; });
     state.particles = state.particles.filter(p => {
         // 粒子受速度影响，向后拉伸
-        p.x += p.vx * lerp(1, 1.5, (state.speed / CFG.boostSpeed));
-        p.y += p.vy;
-        p.life -= 0.01 + state.speed * 0.001; // 速度越快，粒子消失越快
+        p.x += p.vx * lerp(1, 1.5, (state.speed / CFG.boostSpeed)) * state.dt;
+        p.y += p.vy * state.dt;
+        p.life -= (0.01 + state.speed * 0.001) * state.dt; // 速度越快，粒子消失越快
         return p.life > 0;
     });
 }
@@ -361,6 +378,47 @@ function drawTerrain(ctx, color, speedScale, amp, base, t, currentSpeed) {
     ctx.fill();
 }
 
+const PROP_DRAWERS = {
+    petals: (ctx, C) => {
+        ctx.fillStyle = C.accent;
+        ctx.globalAlpha = 0.5;
+        ctx.fillRect(-5, -5, 10, 10);
+    },
+    ruins: (ctx, C) => {
+        ctx.fillStyle = C.mountNear;
+        ctx.globalAlpha = 0.7;
+        ctx.fillRect(-15, -80, 30, 80);
+    },
+    crystals: (ctx, C) => {
+        ctx.fillStyle = 'white';
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(0, 0); ctx.lineTo(-10, -30); ctx.lineTo(0, -50); ctx.lineTo(10, -30);
+        ctx.fill();
+    },
+    dunes: (ctx, C) => {
+        ctx.fillStyle = C.ground;
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(-20, 0);
+        ctx.quadraticCurveTo(0, -30, 20, 0);
+        ctx.fill();
+    },
+    snowflakes: (ctx, p) => {
+        ctx.fillStyle = 'white';
+        ctx.globalAlpha = 0.8;
+        ctx.font = `${p.scale * 30}px Arial`;
+        ctx.fillText('❄', -10, 0);
+    },
+    stars: (ctx, p) => {
+        ctx.fillStyle = 'white';
+        ctx.globalAlpha = p.alpha;
+        ctx.beginPath();
+        ctx.arc(0, 0, p.scale * 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+};
+
 // 绘制地面和装饰物
 function drawGroundAndProps(ctx, C) {
     // 地面实体
@@ -398,39 +456,11 @@ function drawGroundAndProps(ctx, C) {
         ctx.shadowColor = C.accent;
         ctx.fillStyle = C.accent;
 
-        if (p.type === 'petals') {
-            ctx.fillStyle = C.accent;
-            ctx.globalAlpha = 0.5;
-            ctx.fillRect(-5, -5, 10, 10);
-        } else if (p.type === 'ruins') {
-            ctx.fillStyle = C.mountNear;
-            ctx.globalAlpha = 0.7;
-            ctx.fillRect(-15, -80, 30, 80);
-        } else if (p.type === 'crystals') {
-            ctx.fillStyle = 'white';
-            ctx.globalAlpha = 0.8;
-            ctx.beginPath();
-            ctx.moveTo(0, 0); ctx.lineTo(-10, -30); ctx.lineTo(0, -50); ctx.lineTo(10, -30);
-            ctx.fill();
-                } else if (p.type === 'dunes') {
-                    ctx.fillStyle = C.ground;
-                    ctx.globalAlpha = 0.8;
-                    ctx.beginPath();
-                    ctx.moveTo(-20, 0);
-                    ctx.quadraticCurveTo(0, -30, 20, 0);
-                    ctx.fill();
-                } else if (p.type === 'snowflakes') {
-                    ctx.fillStyle = 'white';
-                    ctx.globalAlpha = 0.8;
-                    ctx.font = `${p.scale * 30}px Arial`;
-                    ctx.fillText('❄', -10, 0);
-                } else if (p.type === 'stars') {
-                    ctx.fillStyle = 'white';
-                    ctx.globalAlpha = Math.random();
-                    ctx.beginPath();
-                    ctx.arc(0, 0, p.scale * 2, 0, Math.PI * 2);
-                    ctx.fill();
+        const drawFunc = PROP_DRAWERS[p.type];
+        if (drawFunc) {
+            drawFunc(ctx, p.type === 'snowflakes' || p.type === 'stars' ? p : C);
         }
+
         ctx.restore();
     });
 }
@@ -499,4 +529,4 @@ function drawParticles(ctx, C, alphaScale) {
 }
 
 // 启动循环
-update();
+requestAnimationFrame(update);
