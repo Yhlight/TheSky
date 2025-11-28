@@ -78,6 +78,13 @@ const state = {
         x: 0, y: 0, vy: 0, trail: []
     },
 
+    wind: {
+        current: 0,
+        target: 0,
+        timer: 0,
+        nextChange: 100
+    },
+
     props: [],
     particles: []
 };
@@ -152,12 +159,24 @@ function update(currentTime) {
     }
 
 
-    // 2. 玩家运动 (水平加速与自然浮动)
+    // 2. 风力模拟
+    state.wind.timer -= dt;
+    if (state.wind.timer <= 0) {
+        // 当计时器结束，设定一个新的风力目标和下一个变化时间
+        state.wind.target = random(-25, 25); // 风力范围：-25 (向左) 到 +25 (向右)
+        state.wind.timer = state.wind.nextChange = random(100, 300); // 下一次变化在100-300帧后
+    }
+    // 平滑地将当前风力过渡到目标风力
+    state.wind.current = lerp(state.wind.current, state.wind.target, 0.01 * dt);
+
+
+    // 3. 玩家运动 (水平加速与自然浮动)
     const speedRatio = Math.max(0, Math.min(1, (state.speed - CFG.baseSpeed) / (CFG.boostSpeed - CFG.baseSpeed)));
 
     // 水平位置：加速时向右移动，减速时返回
     const targetX = w * (state.targetSpeed > CFG.baseSpeed ? 0.35 : 0.2);
-    state.player.x = lerp(state.player.x, targetX, 0.04 * dt);
+    // 玩家位置同时受到 lerp 缓动和风力的影响
+    state.player.x = lerp(state.player.x, targetX, 0.04 * dt) + state.wind.current * dt;
 
     // 垂直位置：轻微的上下浮动，而不是基于速度的剧烈升降
     state.player.y = h * 0.5 + Math.sin(state.t * 0.08) * 8;
