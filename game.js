@@ -41,6 +41,16 @@ const THEMES = [
         accent: '#b3e5fc',
         fogColor: '#9fa8da', // 蓝紫雾
         propType: 'crystals'
+    },
+    {
+        name: "SCORCHING SANDS",
+        sky: ['#FFD180', '#FFAB40'], // Light orange to deep orange
+        sun: '#FFFF8D', sunSize: 120,
+        mountFar: '#E2B290', mountNear: '#C18849',
+        ground: '#D4A76A',
+        accent: '#FFF9C4', // Pale yellow
+        fogColor: '#FFE0B2',
+        propType: 'desert'
     }
 ];
 
@@ -157,7 +167,7 @@ function update() {
         state.nextThemeIdx = (state.currentThemeIdx + 1) % THEMES.length;
         uiName.style.opacity = 0;
         setTimeout(() => {
-            uiName.innerText = THEMES[state.nextThemeIdx].name;
+            uiName.innerText = THEMES[state.currentThemeIdx].name;
             uiName.style.opacity = 0.9;
         }, 1000);
     }
@@ -356,6 +366,40 @@ function drawGroundAndProps(ctx, C) {
             ctx.beginPath();
             ctx.moveTo(0, 0); ctx.lineTo(-10, -30); ctx.lineTo(0, -50); ctx.lineTo(10, -30);
             ctx.fill();
+        } else if (p.type === 'desert') {
+            // Saguaro Cactus Style
+            ctx.fillStyle = C.mountNear;
+            ctx.strokeStyle = C.ground;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.8;
+
+            // Trunk
+            ctx.beginPath();
+            ctx.moveTo(-5, 0);
+            ctx.quadraticCurveTo(0, -40, 5, -80); // Slight curve
+            ctx.lineTo(8, -80);
+            ctx.quadraticCurveTo(2, -40, -2, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Left Arm
+            ctx.beginPath();
+            ctx.moveTo(-5, -50);
+            ctx.quadraticCurveTo(-20, -60, -25, -40);
+            ctx.quadraticCurveTo(-22, -65, -8, -52);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Right Arm
+            ctx.beginPath();
+            ctx.moveTo(8, -60);
+            ctx.quadraticCurveTo(25, -70, 30, -50);
+            ctx.quadraticCurveTo(28, -75, 11, -62);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
         }
         ctx.restore();
     });

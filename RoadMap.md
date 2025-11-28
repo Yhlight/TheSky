@@ -20,7 +20,12 @@ This document outlines the development plan for the web game "TheSky". The goal 
 ## Phase 2: Visual & Scene Enhancement
 
 - [ ] **Expand Scene Variety:**
-    - [ ] Add at least five new static scenes (e.g., desert, ocean, snowy mountains).
+    - [ ] Add at least five new static scenes:
+        - [X] Desert
+        - [ ] Ocean
+        - [ ] Snowy Mountains
+        - [ ] Volcanic
+        - [ ] Cityscape
     - [ ] Create a wider variety of props for each scene (e.g., different types of trees, rocks, clouds).
 
 - [ ] **Improve Visual Effects:**
