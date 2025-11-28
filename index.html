@@ -9,13 +9,19 @@
 <body>
     <div id="fx-layer"></div>
     <div id="ui">
-        <h1 id="scene-name">ETHEREAL FLOW</h1>
+        <h1 id="scene-name"></h1>
         <div class="guide">HOLD [D] or [SPACE] TO ACCELERATE</div>
     </div>
     <canvas id="canvas"></canvas>
     <script>
-        // Append a timestamp to the script URL to bypass browser cache during verification
-        document.write(`<script src="game.js?v=${new Date().getTime()}"><\/script>`);
+        (function() {
+            // Create a new script element
+            var script = document.createElement('script');
+            // Set its source to the game script, appending a timestamp to prevent caching
+            script.src = 'game.js?v=' + new Date().getTime();
+            // Append the script element to the body
+            document.body.appendChild(script);
+        })();
     </script>
 </body>
 </html>

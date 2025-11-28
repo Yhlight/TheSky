@@ -56,11 +56,15 @@ const THEMES = [
 
 // --- 配置 ---
 const CFG = {
-    playerMinSpeed: 4,    // 基础巡航速度
-    playerMaxSpeed: 18,   // 加速时最大速度
-    playerAcceleration: 0.2, // 加速的加速度
-    playerDeceleration: 0.1, // 减速的加速度
-    gravity: 0.2,     // 玩家下落速度
+    playerMinSpeed: 3,    // 基础巡航速度 (风力可能使其低于此值)
+    playerMaxSpeed: 20,   // 加速时最大速度
+    playerThrust: 0.25,    // 玩家加速时的推力
+    dragCoefficient: 0.98, // 阻力系数 (越接近1，速度衰减越慢)
+    windForceScale: 0.12,  // 风力强度
+    hoverForce: 0.01,   // 悬浮/回中力
+    hoverDamping: 0.95, // 悬浮阻尼，防止过度振荡
+    gustChance: 0.003,  // 阵风发生概率
+    gustForce: 1.2,     // 阵风强度
     transitionFrames: 350, // 场景切换所需帧数
     terrainBaseY: 0.9,  // 地面在画面中的位置 (0-1)
     playerInitialX: 0.2 // 玩家初始 X 坐标 (0-1, 相对于屏幕宽度)
@@ -74,9 +78,13 @@ const state = {
     currentThemeIdx: 0,
     nextThemeIdx: 1,
     transitionTimer: 0,
+    transitionProgress: 0, // 0-1 的过渡进度
 
     player: {
-        x: 0, y: 0, vx: CFG.playerMinSpeed, vy: 0, trail: []
+        x: 0, y: 0,
+        velocity: { x: CFG.playerMinSpeed, y: 0 },
+        acceleration: { x: 0, y: 0 },
+        trail: []
     },
 
     props: [],
@@ -159,29 +167,6 @@ window.addEventListener('touchstart', (e) => { e.preventDefault(); state.isAccel
 window.addEventListener('touchend', (e) => { e.preventDefault(); state.isAccelerating = false; });
 
 
-function updatePlayer(timestamp) {
-    // 基础悬浮效果
-    let baseY = h / 2 + Math.sin(timestamp / 500) * h * 0.05;
-
-    // 风力效果
-    const windX = (windNoiseX.get(timestamp / 1000) - 0.5) * 4; // 水平风 (-2 to 2)
-    const windY = (windNoiseY.get(timestamp / 800) - 0.5) * 3; // 垂直风 (-1.5 to 1.5)
-
-    // 将风力应用到速度上
-    state.player.vx += windX * 0.05;
-    state.player.vy = windY;
-
-    // 更新位置
-    const speedProgress = (state.player.vx - CFG.playerMinSpeed) / (CFG.playerMaxSpeed - CFG.playerMinSpeed);
-    const offsetX = lerp(0, w * 0.1, speedProgress); // 加速时向右偏移
-    state.player.x = w * CFG.playerInitialX + offsetX;
-    state.player.y = baseY + state.player.vy * 20;
-
-    // 边界检查，防止玩家移出屏幕
-    if (state.player.y < h * 0.1) state.player.y = h * 0.1;
-    if (state.player.y > h * 0.9) state.player.y = h * 0.9;
-}
-
 function gameLoop(timestamp) {
     update(timestamp);
     draw(timestamp);
@@ -191,22 +176,76 @@ function gameLoop(timestamp) {
 function update(timestamp) {
     state.t++; // 仍然保留 t 用于一些基于帧的简单动画
 
-    // 1. 玩家水平速度物理模拟
-    const targetSpeed = state.isAccelerating ? CFG.playerMaxSpeed : CFG.playerMinSpeed;
-    if (state.player.vx < targetSpeed) {
-        state.player.vx += CFG.playerAcceleration;
-        state.player.vx = Math.min(state.player.vx, targetSpeed);
-    } else if (state.player.vx > targetSpeed) {
-        state.player.vx -= CFG.playerDeceleration;
-        state.player.vx = Math.max(state.player.vx, targetSpeed);
+    // --- 1. 新物理模型：施加力 ---
+    const p = state.player;
+    p.acceleration = { x: 0, y: 0 }; // 每帧重置加速度
+
+    // a) 玩家推力
+    if (state.isAccelerating) {
+        p.acceleration.x += CFG.playerThrust;
     }
 
-    // 2. 玩家垂直运动 (悬浮效果)
-    updatePlayer(timestamp);
+    // b) 风力 (持续变化)
+    const windX = (windNoiseX.get(timestamp / 1000) - 0.5) * 2; // -1 to 1
+    const windY = (windNoiseY.get(timestamp / 800) - 0.5) * 2;  // -1 to 1
+    p.acceleration.x += windX * CFG.windForceScale;
+    p.acceleration.y += windY * CFG.windForceScale;
 
-    // 添加新的拖尾点到玩家当前位置
-    state.player.trail.push({ x: state.player.x, y: state.player.y, speed: state.player.vx });
-    const maxTrailLength = 3 + Math.floor(state.player.vx * 1.5); // 拖尾长度随速度变化
+    // c) 悬浮/回中力 (使其保持在屏幕中央)
+    const hoverTargetY = h / 2;
+    const displacementY = hoverTargetY - p.y;
+    p.acceleration.y += displacementY * CFG.hoverForce;
+
+    // d) 随机阵风 (被吹回头)
+    if (Math.random() < CFG.gustChance) {
+        p.acceleration.x -= CFG.gustForce;
+
+        // 视觉效果：生成一阵反向粒子
+        for (let i = 0; i < 15; i++) {
+            state.particles.push({
+                x: p.x + random(-20, 20),
+                y: p.y + random(-20, 20),
+                vx: random(5, 10), // 向右移动
+                vy: random(-2, 2),
+                life: random(0.5, 1),
+                size: random(1, 3),
+                type: THEMES[state.currentThemeIdx].propType
+            });
+        }
+    }
+
+    // --- 2. 更新速度和位置 ---
+    // a) 根据加速度更新速度
+    p.velocity.x += p.acceleration.x;
+    p.velocity.y += p.acceleration.y;
+
+    // b) 应用阻力
+    p.velocity.x *= CFG.dragCoefficient;
+    p.velocity.y *= CFG.hoverDamping; // 垂直方向使用不同的阻尼
+
+    // c) 限制最大速度
+    p.velocity.x = Math.min(p.velocity.x, CFG.playerMaxSpeed);
+    // 确保速度不会过低，除非被风吹
+    if (!state.isAccelerating && p.velocity.x < CFG.playerMinSpeed) {
+        p.velocity.x = lerp(p.velocity.x, CFG.playerMinSpeed, 0.05);
+    }
+
+    // d) 根据速度更新位置
+    p.x += p.velocity.x;
+    p.y += p.velocity.y;
+
+    // 修正玩家的横向位置，使其感觉在“前进”而不是“移动”
+    const speedProgress = Math.max(0, p.velocity.x / CFG.playerMaxSpeed);
+    const targetX = w * CFG.playerInitialX + lerp(0, w * 0.15, speedProgress);
+    p.x = lerp(p.x, targetX, 0.1); // 平滑地移动到目标X
+
+    // e) 边界检查
+    if (p.y < h * 0.1) { p.y = h * 0.1; p.velocity.y *= -0.5; } // 碰撞反弹
+    if (p.y > h * 0.9) { p.y = h * 0.9; p.velocity.y *= -0.5; }
+
+    // --- 3. 更新拖尾 ---
+    state.player.trail.push({ x: state.player.x, y: state.player.y, speed: state.player.velocity.x });
+    const maxTrailLength = 3 + Math.floor(state.player.velocity.x * 1.5); // 拖尾长度随速度变化
     if (state.player.trail.length > maxTrailLength) state.player.trail.shift();
 
     // 3. 场景导演与过渡 (*** 修正逻辑 ***)
@@ -214,6 +253,10 @@ function update(timestamp) {
     const TRANSITION_START_TIME = THEME_DURATION_FRAMES - CFG.transitionFrames;
 
     state.transitionTimer++;
+
+    // 计算并存储过渡进度
+    const rawProgress = (state.transitionTimer - TRANSITION_START_TIME) / CFG.transitionFrames;
+    state.transitionProgress = smoothstep(Math.max(0, Math.min(1, rawProgress)));
 
     // 当一个主题的完整持续时间结束后
     if (state.transitionTimer > THEME_DURATION_FRAMES) {
@@ -236,17 +279,21 @@ function update(timestamp) {
 function generateWorldEntities() {
     // 根据速度调整生成密度
     const speedRange = CFG.playerMaxSpeed - CFG.playerMinSpeed;
-    const speedProgress = speedRange > 0 ? (state.player.vx - CFG.playerMinSpeed) / speedRange : 0;
+    const speedProgress = speedRange > 0 ? (state.player.velocity.x - CFG.playerMinSpeed) / speedRange : 0;
     const particleDensity = lerp(0.05, 0.3, speedProgress);
 
     // Props (相对稀疏)
     if (Math.random() < 0.015) {
-        const T = THEMES[state.currentThemeIdx];
-        if (T.propType !== 'none') {
+        // *** 混合生成道具 ***
+        const T1 = THEMES[state.currentThemeIdx];
+        const T2 = THEMES[state.nextThemeIdx];
+        const propTheme = (Math.random() < state.transitionProgress) ? T2 : T1;
+
+        if (propTheme.propType !== 'none') {
             state.props.push({
                 x: w + 100,
                 y: h * CFG.terrainBaseY - random(50, 150),
-                type: T.propType,
+                type: propTheme.propType,
                 scale: random(0.8, 1.5),
                 rot: random(0, Math.PI * 2)
             });
@@ -258,7 +305,7 @@ function generateWorldEntities() {
         state.particles.push({
             x: w + 10,
             y: random(0, h),
-            vx: -random(state.player.vx * 0.8, state.player.vx * 1.2),
+            vx: -random(state.player.velocity.x * 0.8, state.player.velocity.x * 1.2),
             vy: random(-1, 1),
             life: 1,
             size: random(1, 3),
@@ -270,7 +317,7 @@ function generateWorldEntities() {
     // 使用反向循环安全地在迭代时移除道具
     for (let i = state.props.length - 1; i >= 0; i--) {
         const p = state.props[i];
-        p.x -= state.player.vx;
+        p.x -= state.player.velocity.x;
         if (p.x <= -200) {
             state.props.splice(i, 1);
         }
@@ -279,9 +326,9 @@ function generateWorldEntities() {
     // 使用反向循环安全地在迭代时移除粒子
     for (let i = state.particles.length - 1; i >= 0; i--) {
         const p = state.particles[i];
-        p.x += p.vx * lerp(1, 1.5, (state.player.vx / CFG.playerMaxSpeed));
+        p.x += p.vx * lerp(1, 1.5, (state.player.velocity.x / CFG.playerMaxSpeed));
         p.y += p.vy;
-        p.life -= 0.01 + state.player.vx * 0.001;
+        p.life -= 0.01 + state.player.velocity.x * 0.001;
 
         if (p.life <= 0) {
             state.particles.splice(i, 1);
@@ -290,15 +337,7 @@ function generateWorldEntities() {
 }
 
 function draw(timestamp) {
-    const THEME_DURATION_FRAMES = CFG.transitionFrames * 3;
-    const TRANSITION_START_TIME = THEME_DURATION_FRAMES - CFG.transitionFrames;
-
-    // 计算真实的过渡进度 (0 to 1)
-    const transitionProgress = (state.transitionTimer - TRANSITION_START_TIME) / CFG.transitionFrames;
-    const clampedP = Math.max(0, Math.min(1, transitionProgress)); // 将进度限制在 [0, 1]
-
-    // 使用 Smoothstep 函数得到柔和的过渡进度
-    const progress = (state.currentThemeIdx === state.nextThemeIdx) ? 0 : smoothstep(clampedP);
+    const progress = state.transitionProgress;
 
     const T1 = THEMES[state.currentThemeIdx];
     const T2 = THEMES[state.nextThemeIdx];
@@ -351,8 +390,8 @@ function draw(timestamp) {
     ctx.restore();
 
     // --- 3. 多层视差地形 ---
-    drawTerrain(ctx, C.mountFar, 0.2, 120, h * 0.65, state.t, state.player.vx, 0.002);
-    drawTerrain(ctx, C.mountNear, 0.4, 100, h * 0.75, state.t, state.player.vx, 0.004);
+    drawTerrain(ctx, C.mountFar, 0.2, 120, h * 0.65, state.t, state.player.velocity.x, 0.002);
+    drawTerrain(ctx, C.mountNear, 0.4, 100, h * 0.75, state.t, state.player.velocity.x, 0.004);
 
     // --- 4. 远景粒子 (速度线) ---
     drawParticles(ctx, C, 0.5); // 远景粒子更透明，产生速度线效果
@@ -430,7 +469,7 @@ function drawGroundAndProps(ctx, C) {
     ctx.beginPath();
     ctx.moveTo(0, h);
     const groundBase = h * CFG.terrainBaseY;
-    const scroll = state.t * state.player.vx;
+    const scroll = state.t * state.player.velocity.x;
 
     // 地面线条 (最快的 parallax 速度)
     for (let x = 0; x <= w; x += 20) {
@@ -525,12 +564,19 @@ function drawParticles(ctx, C, alphaScale) {
     state.particles.forEach(p => {
         ctx.globalAlpha = p.life * alphaScale;
         // 速度越快，粒子被拉伸越长（视觉加速效果）
-        const length = 1 + p.size * (state.player.vx / CFG.playerMaxSpeed) * 1.5;
+        const length = 1 + p.size * (state.player.velocity.x / CFG.playerMaxSpeed) * 1.5;
 
         ctx.fillRect(p.x, p.y, length, Math.max(0.5, p.size / 2));
     });
     ctx.restore();
 }
 
+// 初始化UI
+function initUI() {
+    uiName.innerText = THEMES[state.currentThemeIdx].name;
+    uiName.style.opacity = 0.9;
+}
+
 // 启动循环
+initUI();
 gameLoop(0);
