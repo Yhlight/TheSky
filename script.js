@@ -71,6 +71,49 @@ const THEMES = [
         accent: '#f0f4ff',
         fogColor: '#3949ab',
         propType: 'stars'
+    },
+    {
+        name: "SPRING MEADOW",
+        sky: ['#81c784', '#aed581'], // 绿到淡绿
+        sun: '#fff59d', sunSize: 70,
+        mountFar: '#a5d6a7', mountNear: '#c5e1a5',
+        ground: '#7cb342',
+        accent: '#fce4ec',
+        fogColor: '#dcedc8',
+        propType: 'flowers',
+        particleType: 'petals'
+    },
+    {
+        name: "AUTUMN BREEZE",
+        sky: ['#ff8a65', '#ffb74d'], // 橙到黄
+        sun: '#fff176', sunSize: 60,
+        mountFar: '#d7ccc8', mountNear: '#a1887f',
+        ground: '#8d6e63',
+        accent: '#ffcc80',
+        fogColor: '#efebe9',
+        propType: 'fallingLeaves',
+        particleType: 'leaves'
+    },
+    {
+        name: "OCEANIC GRANDEUR",
+        sky: ['#2196f3', '#64b5f6'], // 蓝到浅蓝
+        sun: '#fafafa', sunSize: 80,
+        mountFar: '#90caf9', mountNear: '#bbdefb',
+        ground: '#1976d2',
+        accent: '#ffffff',
+        fogColor: '#e3f2fd',
+        propType: 'waves'
+    },
+    {
+        name: "GENTLE RAIN",
+        sky: ['#607d8b', '#90a4ae'], // 灰蓝
+        sun: '#b0bec5', sunSize: 40, // Hidden sun
+        mountFar: '#78909c', mountNear: '#546e7a',
+        ground: '#455a64',
+        accent: '#cfd8dc',
+        fogColor: '#b0bec5',
+        propType: 'puddles',
+        particleType: 'rain'
     }
 ];
 
@@ -262,15 +305,24 @@ function generateWorldEntities() {
 
     // Particles (密集且受速度影响)
     if (Math.random() < particleDensity) {
-        state.particles.push({
+        const T = THEMES[state.currentThemeIdx];
+        const newParticle = {
             x: w + 10,
             y: random(0, h),
             vx: -random(state.speed * 0.8, state.speed * 1.2),
             vy: random(-1, 1),
             life: 1,
             size: random(1, 3),
-            type: THEMES[state.currentThemeIdx].propType
-        });
+            type: T.particleType || 'default',
+            rot: random(0, Math.PI * 2)
+        };
+
+        if (newParticle.type === 'rain') {
+            newParticle.vx = -state.speed - 10;
+            newParticle.vy = 20;
+        }
+
+        state.particles.push(newParticle);
     }
 
     // 更新实体位置和清理
@@ -416,53 +468,131 @@ const PROP_DRAWERS = {
         ctx.beginPath();
         ctx.arc(0, 0, p.scale * 2, 0, Math.PI * 2);
         ctx.fill();
+    },
+    flowers: (ctx, C) => {
+        ctx.fillStyle = C.accent;
+        ctx.globalAlpha = 0.8;
+        for (let i = 0; i < 5; i++) {
+            const angle = (i / 5) * Math.PI * 2;
+            const x = Math.cos(angle) * 8;
+            const y = Math.sin(angle) * 8;
+            ctx.beginPath();
+            ctx.arc(x, y, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.fillStyle = '#ffeb3b'; // Flower center
+        ctx.beginPath();
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+    },
+    fallingLeaves: (ctx, C) => {
+        ctx.fillStyle = C.accent;
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(10, 10, 0, 20);
+        ctx.quadraticCurveTo(-10, 10, 0, 0);
+        ctx.fill();
+    },
+    puddles: (ctx, C) => {
+        ctx.fillStyle = C.accent;
+        ctx.globalAlpha = 0.3;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 20, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+};
+
+const PARTICLE_DRAWERS = {
+    default: (ctx, p) => {
+        const length = 1 + p.size * (state.speed / CFG.boostSpeed) * 5;
+        ctx.fillRect(p.x, p.y, length, Math.max(0.5, p.size / 2));
+    },
+    petals: (ctx, p) => {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillRect(-p.size * 2, -p.size, p.size * 4, p.size * 2);
+        ctx.restore();
+    },
+    leaves: (ctx, p) => {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(p.size * 2, p.size * 2, 0, p.size * 4);
+        ctx.quadraticCurveTo(-p.size * 2, p.size * 2, 0, 0);
+        ctx.fill();
+        ctx.restore();
+    },
+    rain: (ctx, p) => {
+        ctx.fillRect(p.x, p.y, 2, 15);
     }
 };
 
 // 绘制地面和装饰物
 function drawGroundAndProps(ctx, C) {
-    // 地面实体
-    ctx.fillStyle = C.ground;
-    ctx.beginPath();
-    ctx.moveTo(0, h);
     const groundBase = h * CFG.terrainBaseY;
     const scroll = state.t * state.speed;
+    const currentTheme = THEMES[state.currentThemeIdx];
 
-    // 地面线条 (最快的 parallax 速度)
-    for (let x = 0; x <= w; x += 20) {
-        let y = groundBase + Math.sin((x + scroll) * 0.005) * 30;
-        ctx.lineTo(x, y);
-    }
-    ctx.lineTo(w, h);
-    ctx.fill();
-
-    // 地面高光
-    ctx.strokeStyle = C.accent;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // 装饰物 (Props)
-    state.props.forEach(p => {
-        const x = p.x;
-        // 贴合地面
-        const groundY = groundBase + Math.sin((x + scroll) * 0.005) * 30;
-
-        ctx.save();
-        ctx.translate(x, groundY);
-        ctx.scale(p.scale, p.scale);
-        ctx.rotate(p.rot);
-
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = C.accent;
-        ctx.fillStyle = C.accent;
-
-        const drawFunc = PROP_DRAWERS[p.type];
-        if (drawFunc) {
-            drawFunc(ctx, p.type === 'snowflakes' || p.type === 'stars' ? p : C);
+    if (currentTheme.propType === 'waves') {
+        // Draw waves instead of ground
+        const waveColors = ['rgba(25, 118, 210, 0.5)', 'rgba(100, 181, 246, 0.5)', 'rgba(255, 255, 255, 0.5)'];
+        for (let i = 0; i < waveColors.length; i++) {
+            ctx.fillStyle = waveColors[i];
+            ctx.beginPath();
+            ctx.moveTo(0, h);
+            const waveOffset = i * 0.5;
+            for (let x = 0; x <= w; x += 20) {
+                let y = groundBase + Math.sin((x + scroll * (1 + waveOffset)) * 0.003) * 20 + i * 15;
+                ctx.lineTo(x, y);
+            }
+            ctx.lineTo(w, h);
+            ctx.fill();
         }
+    } else {
+        // Draw standard ground
+        ctx.fillStyle = C.ground;
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        for (let x = 0; x <= w; x += 20) {
+            let y = groundBase + Math.sin((x + scroll) * 0.005) * 30;
+            ctx.lineTo(x, y);
+        }
+        ctx.lineTo(w, h);
+        ctx.fill();
 
-        ctx.restore();
-    });
+        // Ground highlight
+        ctx.strokeStyle = C.accent;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    // Draw props (but not for waves, as they replace the ground props)
+    if (currentTheme.propType !== 'waves') {
+        state.props.forEach(p => {
+            const x = p.x;
+            const groundY = groundBase + Math.sin((x + scroll) * 0.005) * 30;
+
+            ctx.save();
+            ctx.translate(x, groundY);
+            ctx.scale(p.scale, p.scale);
+            ctx.rotate(p.rot);
+
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = C.accent;
+            ctx.fillStyle = C.accent;
+
+            const drawFunc = PROP_DRAWERS[p.type];
+            if (drawFunc) {
+                drawFunc(ctx, p.type === 'snowflakes' || p.type === 'stars' ? p : C);
+            }
+
+            ctx.restore();
+        });
+    }
 }
 
 // 绘制玩家 (光之子)
@@ -520,10 +650,11 @@ function drawParticles(ctx, C, alphaScale) {
 
     state.particles.forEach(p => {
         ctx.globalAlpha = p.life * alphaScale;
-        // 速度越快，粒子被拉伸越长（视觉加速效果）
-        const length = 1 + p.size * (state.speed / CFG.boostSpeed) * 5;
 
-        ctx.fillRect(p.x, p.y, length, Math.max(0.5, p.size / 2));
+        p.rot += state.speed * 0.005 * state.dt;
+
+        const drawFunc = PARTICLE_DRAWERS[p.type] || PARTICLE_DRAWERS.default;
+        drawFunc(ctx, p);
     });
     ctx.restore();
 }
