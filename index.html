@@ -13,6 +13,9 @@
         <div class="guide">HOLD [D] or [SPACE] TO ACCELERATE</div>
     </div>
     <canvas id="canvas"></canvas>
-    <script src="game.js"></script>
+    <script>
+        // Append a timestamp to the script URL to bypass browser cache during verification
+        document.write(`<script src="game.js?v=${new Date().getTime()}"><\/script>`);
+    </script>
 </body>
 </html>

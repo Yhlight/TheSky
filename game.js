@@ -41,6 +41,16 @@ const THEMES = [
         accent: '#b3e5fc',
         fogColor: '#9fa8da', // 蓝紫雾
         propType: 'crystals'
+    },
+    {
+        name: "AUTUMN EMBRACE",
+        sky: ['#ff8a65', '#ffb74d'], // 深橙到浅橙
+        sun: '#fff3e0', sunSize: 70,
+        mountFar: '#d7ccc8', mountNear: '#a1887f',
+        ground: '#8d6e63',
+        accent: '#ffccbc',
+        fogColor: '#ffcc80', // 橙色雾
+        propType: 'leaf'
     }
 ];
 
@@ -95,6 +105,34 @@ const lerpColor = (c1, c2, t) => {
 }
 const random = (min, max) => Math.random() * (max - min) + min;
 
+// --- Value Noise (用于更自然的地形) ---
+class ValueNoise {
+    constructor(seed = Math.random()) {
+        this.seed = seed;
+        this.values = new Array(256).fill(0).map(() => Math.random());
+    }
+
+    // 平滑插值 (Cosine)
+    cosineInterpolate(a, b, t) {
+        const ft = t * Math.PI;
+        const f = (1 - Math.cos(ft)) * 0.5;
+        return a * (1 - f) + b * f;
+    }
+
+    // 获取噪声值
+    get(x) {
+        const intX = Math.floor(x);
+        const fracX = x - intX;
+
+        const v1 = this.values[intX & 255];
+        const v2 = this.values[(intX + 1) & 255];
+
+        return this.cosineInterpolate(v1, v2, fracX);
+    }
+}
+const terrainNoise = new ValueNoise();
+
+
 // --- 初始化 ---
 function resize() {
     w = canvas.width = window.innerWidth;
@@ -147,7 +185,12 @@ function update(timestamp) {
     // 2. 玩家垂直运动 (悬浮效果)
     updatePlayer(timestamp);
 
-    // 玩家拖尾
+    // *** 拖尾BUG修复：更新所有现有拖尾点的x坐标，使其随世界移动 ***
+    for (const point of state.player.trail) {
+        point.x -= state.player.vx;
+    }
+
+    // 添加新的拖尾点到玩家当前位置
     state.player.trail.push({ x: state.player.x, y: state.player.y, speed: state.player.vx });
     const maxTrailLength = 10 + Math.floor(state.player.vx * 2.5); // 拖尾长度随速度变化
     if (state.player.trail.length > maxTrailLength) state.player.trail.shift();
@@ -292,8 +335,8 @@ function draw() {
     ctx.restore();
 
     // --- 3. 多层视差地形 ---
-    drawTerrain(ctx, C.mountFar, 0.2, 80, h * 0.6, state.t, state.player.vx);
-    drawTerrain(ctx, C.mountNear, 0.4, 50, h * 0.75, state.t, state.player.vx);
+    drawTerrain(ctx, C.mountFar, 0.2, 120, h * 0.65, state.t, state.player.vx, 0.002);
+    drawTerrain(ctx, C.mountNear, 0.4, 100, h * 0.75, state.t, state.player.vx, 0.004);
 
     // --- 4. 远景粒子 (速度线) ---
     drawParticles(ctx, C, 0.5); // 远景粒子更透明，产生速度线效果
@@ -316,21 +359,53 @@ function draw() {
     ctx.globalCompositeOperation = 'source-over';
 }
 
-// 绘制地形
-function drawTerrain(ctx, color, speedScale, amp, base, t, currentSpeed) {
+// 绘制地形 (*** 使用Value Noise重构 ***)
+function drawTerrain(ctx, color, speedScale, amp, base, t, currentSpeed, freq) {
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(0, h);
-    for (let x = 0; x <= w; x += 20) {
-        let scroll = t * currentSpeed * speedScale;
-        // 引入了时间（t）和加速度（currentSpeed）
-        let noise = Math.sin((x + scroll) * 0.002) * amp +
-            Math.sin((x + scroll) * 0.01) * (amp * 0.3);
-        ctx.lineTo(x, base - noise);
+    for (let x = 0; x <= w; x += 10) { // 增加采样密度
+        let scroll = t * currentSpeed * speedScale * 0.01;
+
+        // 叠加两层噪声以获得更丰富的细节
+        let noiseVal = terrainNoise.get((x * freq) + scroll) * amp;
+        noiseVal += terrainNoise.get((x * freq * 2.5) + scroll + 17) * (amp * 0.4);
+
+        ctx.lineTo(x, base - noiseVal);
     }
     ctx.lineTo(w, h);
     ctx.fill();
 }
+
+// --- 道具绘制逻辑 (模块化) ---
+const PROP_DRAWERS = {
+    'petals': (ctx, C, p) => {
+        ctx.fillStyle = C.accent;
+        ctx.globalAlpha = 0.5;
+        ctx.fillRect(-5, -5, 10, 10);
+    },
+    'ruins': (ctx, C, p) => {
+        ctx.fillStyle = C.mountNear;
+        ctx.globalAlpha = 0.7;
+        ctx.fillRect(-15, -80, 30, 80);
+    },
+    'crystals': (ctx, C, p) => {
+        ctx.fillStyle = 'white';
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(0, 0); ctx.lineTo(-10, -30); ctx.lineTo(0, -50); ctx.lineTo(10, -30);
+        ctx.fill();
+    },
+    'leaf': (ctx, C, p) => {
+        // 模拟飘落的叶子
+        ctx.fillStyle = `rgba(220, 120, 50, 0.7)`;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(10, 5, 15, 15);
+        ctx.quadraticCurveTo(5, 10, 0, 0);
+        ctx.fill();
+    }
+};
 
 // 绘制地面和装饰物
 function drawGroundAndProps(ctx, C) {
@@ -354,8 +429,11 @@ function drawGroundAndProps(ctx, C) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // 装饰物 (Props)
+    // 装饰物 (Props) - *** 重构后的逻辑 ***
     state.props.forEach(p => {
+        const drawer = PROP_DRAWERS[p.type];
+        if (!drawer) return; // 如果没有对应的绘制函数，则跳过
+
         const x = p.x;
         // 贴合地面
         const groundY = groundBase + Math.sin((x + scroll) * 0.005) * 30;
@@ -367,23 +445,10 @@ function drawGroundAndProps(ctx, C) {
 
         ctx.shadowBlur = 10;
         ctx.shadowColor = C.accent;
-        ctx.fillStyle = C.accent;
 
-        if (p.type === 'petals') {
-            ctx.fillStyle = C.accent;
-            ctx.globalAlpha = 0.5;
-            ctx.fillRect(-5, -5, 10, 10);
-        } else if (p.type === 'ruins') {
-            ctx.fillStyle = C.mountNear;
-            ctx.globalAlpha = 0.7;
-            ctx.fillRect(-15, -80, 30, 80);
-        } else if (p.type === 'crystals') {
-            ctx.fillStyle = 'white';
-            ctx.globalAlpha = 0.8;
-            ctx.beginPath();
-            ctx.moveTo(0, 0); ctx.lineTo(-10, -30); ctx.lineTo(0, -50); ctx.lineTo(10, -30);
-            ctx.fill();
-        }
+        // 调用专属的绘制函数
+        drawer(ctx, C, p);
+
         ctx.restore();
     });
 }
