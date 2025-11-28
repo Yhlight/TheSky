@@ -192,7 +192,8 @@ function update() {
     state.speed = lerp(state.speed, state.targetSpeed, 0.05);
 
     // 2. 玩家垂直运动 (飞行控制)
-    const targetY = h * 0.5 - (state.speed - CFG.baseSpeed) * 3; // 速度越快，Y轴中心点越向上
+    // BUG 修复：解除 Y 轴位置与速度的关联，实现纯粹的水平加速
+    const targetY = h * 0.5;
     const springiness = 0.005 * state.speed;
 
     state.player.vy += (targetY - state.player.y) * springiness; // 弹性跟随
