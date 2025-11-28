@@ -41,6 +41,16 @@ const THEMES = [
         accent: '#b3e5fc',
         fogColor: '#9fa8da', // 蓝紫雾
         propType: 'crystals'
+    },
+    {
+        name: "AUTUMN'S EMBRACE",
+        sky: ['#ff8a65', '#f57c00'], // 深橙到橙
+        sun: '#ffcc80', sunSize: 80,
+        mountFar: '#a1887f', mountNear: '#795548',
+        ground: '#5d4037',
+        accent: '#ffab40',
+        fogColor: '#ffccbc', // 浅橙雾
+        propType: 'leaves'
     }
 ];
 
@@ -363,6 +373,14 @@ function drawGroundAndProps(ctx, C) {
             ctx.globalAlpha = 0.8;
             ctx.beginPath();
             ctx.moveTo(0, 0); ctx.lineTo(-10, -30); ctx.lineTo(0, -50); ctx.lineTo(10, -30);
+            ctx.fill();
+        } else if (p.type === 'leaves') {
+            ctx.fillStyle = C.accent;
+            ctx.globalAlpha = 0.7;
+            ctx.beginPath();
+            ctx.moveTo(0, -5);
+            ctx.bezierCurveTo(10, 0, 10, -15, 0, -20);
+            ctx.bezierCurveTo(-10, -15, -10, 0, 0, -5);
             ctx.fill();
         }
         ctx.restore();
