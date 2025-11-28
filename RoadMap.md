@@ -57,3 +57,10 @@ This document outlines the development plan for the web game "TheSky". The goal 
 - [ ] **Final Review & Bug Fixing:**
     - [ ] Conduct thorough testing to identify and fix any remaining bugs.
     - [ ] Gather feedback and make final adjustments to the game.
+
+## Bug Fixes
+
+- [X] **Gameplay & Visuals (2025-11-28):**
+    - [X] Fixed incorrect acceleration behavior where the player would move upwards instead of right.
+    - [X] Corrected a visual bug in scene transitions that caused color flickering.
+    - [X] Shortened scene transition times for a better gameplay rhythm.

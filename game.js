@@ -146,12 +146,11 @@ function update() {
     }
     state.speed = lerp(state.speed, state.targetSpeed, 0.05);
 
-    // 2. 玩家垂直运动 (飞行控制)
-    const targetY = h * 0.5 - (state.speed - CFG.baseSpeed) * 3; // 速度越快，Y轴中心点越向上
-    const springiness = 0.005 * state.speed;
-
+    // 2. 玩家垂直运动 (飞行控制) - 已修复
+    const targetY = h * 0.5; // 目标Y轴始终是屏幕中点
+    const springiness = 0.01; // 固定的弹性系数
     state.player.vy += (targetY - state.player.y) * springiness; // 弹性跟随
-    state.player.vy *= 0.85; // 阻力
+    state.player.vy *= 0.9; // 阻力
     state.player.y += state.player.vy;
 
     // 玩家拖尾
@@ -161,15 +160,17 @@ function update() {
 
     // 3. 场景导演与过渡
     state.transitionTimer++;
-    if (state.transitionTimer > CFG.transitionFrames * 4) {
+    // BUGFIX: 加速场景切换
+    if (state.transitionTimer > CFG.transitionFrames) {
         state.transitionTimer = 0;
         state.currentThemeIdx = state.nextThemeIdx;
         state.nextThemeIdx = (state.currentThemeIdx + 1) % THEMES.length;
+
         uiName.style.opacity = 0;
         setTimeout(() => {
             uiName.innerText = THEMES[state.currentThemeIdx].name;
             uiName.style.opacity = 0.9;
-        }, 1000);
+        }, 500);
     }
 
     // 4. 世界生成
@@ -222,7 +223,9 @@ function generateWorldEntities() {
 }
 
 function draw() {
-    const P = state.transitionTimer / CFG.transitionFrames;
+    let P = state.transitionTimer / CFG.transitionFrames;
+    // BUGFIX: 限制进度在 [0, 1] 之间
+    P = Math.max(0, Math.min(P, 1));
     // 使用 Smoothstep 函数得到柔和的过渡进度
     const progress = (state.currentThemeIdx === state.nextThemeIdx) ? 0 : smoothstep(P);
 
