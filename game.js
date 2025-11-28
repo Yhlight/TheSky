@@ -152,13 +152,15 @@ function update(currentTime) {
     }
 
 
-    // 2. 玩家垂直运动 (柔和浮动)
-    // 彻底移除复杂的弹簧物理，直接将Y坐标绑定到一个平滑的正弦波上
-    // 这将消除所有“下坠”感，实现纯粹的水平飞行感
-    const hoverAmplitude = h * 0.02; // 浮动幅度非常小
-    const hoverFrequency = 0.03;   // 浮动频率
-    state.player.y = h * 0.5 + Math.sin(state.t * hoverFrequency) * hoverAmplitude;
-    state.player.vy = 0; // 不再需要垂直速度
+    // 2. 玩家垂直运动 (基于速度的柔和升降)
+    // 目标Y值：加速时上升，匀速时居中
+    const speedRatio = Math.max(0, Math.min(1, (state.speed - CFG.baseSpeed) / (CFG.boostSpeed - CFG.baseSpeed)));
+    const targetY = h * 0.5 - speedRatio * h * 0.1; // 加速越多，飞得越高 (最高到屏幕40%处)
+
+    // 使用 lerp 平滑地将当前Y值过渡到目标Y值
+    // dt 的加入确保了缓动效果在不同帧率下表现一致
+    state.player.y = lerp(state.player.y, targetY, 0.03 * dt);
+    state.player.vy = 0; // 物理引擎的垂直速度不再需要
 
     // 玩家拖尾
     state.player.trail.push({ x: state.player.x, y: state.player.y, speed: state.speed });
@@ -230,9 +232,16 @@ function generateWorldEntities(dt) {
         o.x -= state.speed * dt;
     });
     state.particles.forEach(p => {
+        // 基础物理更新
         p.x += p.vx * lerp(1, 1.5, (state.speed / CFG.boostSpeed)) * dt;
         p.y += p.vy * dt;
-        p.life -= (0.01 + state.speed * 0.001) * dt;
+        p.life -= (0.005 + state.speed * 0.0005) * dt; // 降低生命衰减速度，让粒子更持久
+
+        // --- 特殊粒子行为 ---
+        if (p.type === 'petals') {
+            // 花瓣飘落效果
+            p.x += Math.sin(p.y * 0.1) * 0.5 * dt;
+        }
     });
 
     // 2. 过滤掉“死亡”的实体
@@ -430,11 +439,13 @@ function drawPlayer(ctx, C) {
     ctx.save();
     ctx.translate(p.x, p.y);
 
-    // 强烈的辉光
-    ctx.shadowBlur = 50;
+    // 动态辉光，随时间脉动
+    const pulse = 0.6 + Math.sin(state.t * 0.1) * 0.4; // 0.6 to 1.0 range
+    ctx.shadowBlur = lerp(30, 60, pulse);
     ctx.shadowColor = 'white';
     ctx.fillStyle = C.accent;
     ctx.rotate(state.t * 0.05);
+    ctx.scale(pulse, pulse); // 核心也随辉光缩放
     ctx.fillRect(-10, -10, 20, 20);
 
     ctx.restore();
@@ -447,10 +458,18 @@ function drawParticles(ctx, C, alphaScale) {
     ctx.fillStyle = C.accent;
 
     state.particles.forEach(p => {
-        ctx.globalAlpha = p.life * alphaScale;
+        let alpha = p.life * alphaScale;
+
+        // --- 特殊粒子渲染 ---
+        if (p.type === 'crystals') {
+            // 水晶闪烁效果
+            alpha *= (0.5 + Math.abs(Math.sin(p.life * 10 + state.t * 0.2)));
+        }
+
+        ctx.globalAlpha = alpha;
+
         // 速度越快，粒子被拉伸越长（视觉加速效果）
         const length = 1 + p.size * (state.speed / CFG.boostSpeed) * 5;
-
         ctx.fillRect(p.x, p.y, length, Math.max(0.5, p.size / 2));
     });
     ctx.restore();
