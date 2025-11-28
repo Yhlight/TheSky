@@ -152,20 +152,20 @@ function update(currentTime) {
     }
 
 
-    // 2. 玩家垂直运动 (基于速度的柔和升降)
-    // 目标Y值：加速时上升，匀速时居中
+    // 2. 玩家运动 (水平加速与自然浮动)
     const speedRatio = Math.max(0, Math.min(1, (state.speed - CFG.baseSpeed) / (CFG.boostSpeed - CFG.baseSpeed)));
-    const targetY = h * 0.5 - speedRatio * h * 0.1; // 加速越多，飞得越高 (最高到屏幕40%处)
 
-    // 使用 lerp 平滑地将当前Y值过渡到目标Y值
-    // dt 的加入确保了缓动效果在不同帧率下表现一致
-    state.player.y = lerp(state.player.y, targetY, 0.03 * dt);
-    state.player.vy = 0; // 物理引擎的垂直速度不再需要
+    // 水平位置：加速时向右移动，减速时返回
+    const targetX = w * (state.targetSpeed > CFG.baseSpeed ? 0.35 : 0.2);
+    state.player.x = lerp(state.player.x, targetX, 0.04 * dt);
+
+    // 垂直位置：轻微的上下浮动，而不是基于速度的剧烈升降
+    state.player.y = h * 0.5 + Math.sin(state.t * 0.08) * 8;
+    state.player.vy = 0;
 
     // 玩家拖尾
     state.player.trail.push({ x: state.player.x, y: state.player.y, speed: state.speed });
     // 基础拖尾长度为15，加速时长度指数增长，使其更明显
-    const speedRatio = (state.speed - CFG.baseSpeed) / (CFG.boostSpeed - CFG.baseSpeed);
     const maxTrailLength = 15 + Math.floor(Math.pow(speedRatio, 2) * 80);
     if (state.player.trail.length > maxTrailLength) state.player.trail.shift();
 
@@ -407,29 +407,27 @@ function drawPlayer(ctx, C) {
 
     // 1. 拖尾 (使用 Lighter 模式，实现真正的光线叠加)
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter'; // 关键：叠加光线
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round'; // 使用圆头线帽，让线段连接更平滑
 
-    if (p.trail.length > 2) {
-        ctx.beginPath();
-        ctx.moveTo(p.trail[0].x, p.trail[0].y);
-
-        for (let i = 1; i < p.trail.length - 1; i++) {
+    if (p.trail.length > 1) {
+        for (let i = 1; i < p.trail.length; i++) {
+            const prevPoint = p.trail[i - 1];
             const point = p.trail[i];
-            const nextPoint = p.trail[i + 1];
 
-            // 确保线宽不会小于 0.5, 加速时线条更粗
-            const speedRatio = (p.trail[i].speed - CFG.baseSpeed) / (CFG.boostSpeed - CFG.baseSpeed);
-            const lineWidth = Math.max(0.5, 5 + speedRatio * 15);
+            ctx.beginPath(); // 关键：为每个线段开始新路径
+            ctx.moveTo(prevPoint.x, prevPoint.y);
+            ctx.lineTo(point.x, point.y);
 
-            // 贝塞尔曲线平滑连接
-            const xc = (point.x + nextPoint.x) / 2;
-            const yc = (point.y + nextPoint.y) / 2;
-            ctx.quadraticCurveTo(point.x, point.y, xc, yc);
+            // 根据速度计算线宽
+            const speedRatio = Math.max(0, (point.speed - CFG.baseSpeed) / (CFG.boostSpeed - CFG.baseSpeed));
+            const lineWidth = 5 + speedRatio * 15;
 
-            // 越靠近尾巴，光线越柔和
-            const alpha = i / p.trail.length;
-            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.6})`;
-            ctx.lineWidth = lineWidth; // 使用安全的线宽
+            // 越靠近尾巴，越透明
+            const alpha = (i / p.trail.length) * 0.6;
+
+            ctx.lineWidth = lineWidth;
+            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
             ctx.stroke();
         }
     }
