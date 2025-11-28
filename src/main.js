@@ -7,11 +7,14 @@ const app = createApp({
     const isMoving = ref(false);
     const isAutoMoving = ref(false);
     const trail = ref([]);
+    const speedMultiplier = ref(1);
     const scenes = [
-      { name: 'Spring', backgroundColor: '#d1fecb', particles: '●' },
-      { name: 'Summer', backgroundColor: '#fff9c4', particles: '●' },
-      { name: 'Autumn', backgroundColor: '#ffccbc', particles: '●' },
-      { name: 'Winter', backgroundColor: '#e0f7fa', particles: '●' }
+      { name: 'Spring', backgroundColor: '#d1fecb', particleChar: '🌸', particleColor: '#ff8fab' },
+      { name: 'Summer', backgroundColor: '#fff9c4', particleChar: '☀️', particleColor: '#ffeb3b' },
+      { name: 'Autumn', backgroundColor: '#ffccbc', particleChar: '🍁', particleColor: '#ff7043' },
+      { name: 'Winter', backgroundColor: '#e0f7fa', particleChar: '❄️', particleColor: '#ffffff' },
+      { name: 'Starry Night', backgroundColor: '#001a33', particleChar: '*', particleColor: '#ffffff' },
+      { name: 'Desert', backgroundColor: '#f0e68c', particleChar: '…', particleColor: '#c2b280' }
     ];
     const currentSceneIndex = ref(0);
     const sceneParticles = ref([]);
@@ -23,7 +26,7 @@ const app = createApp({
 
     const moveRight = () => {
       if (crystalX.value < 90) {
-        crystalX.value += 0.17; // Adjusted for requestAnimationFrame
+        crystalX.value += 0.17 * speedMultiplier.value;
       } else {
         crystalX.value = 10; // Loop back
         currentSceneIndex.value = (currentSceneIndex.value + 1) % scenes.length;
@@ -40,7 +43,7 @@ const app = createApp({
 
     const updateSceneParticles = () => {
         sceneParticles.value.forEach(p => {
-            p.y += p.speed;
+            p.y += p.speed * speedMultiplier.value;
             if (p.y > 100) {
                 p.y = 0;
                 p.x = Math.random() * 100;
@@ -68,6 +71,7 @@ const app = createApp({
     const stopMoving = () => {
       isMoving.value = false;
       isAutoMoving.value = false;
+      speedMultiplier.value = 1;
       clearTimeout(keydownTimeout);
       keydownTimeout = null;
     };
@@ -83,6 +87,7 @@ const app = createApp({
         startMoving();
         keydownTimeout = setTimeout(() => {
             isAutoMoving.value = true;
+            speedMultiplier.value = 3;
         }, 3000);
       }
     };
@@ -100,8 +105,9 @@ const app = createApp({
             sceneParticles.value.push({
                 x: Math.random() * 100,
                 y: Math.random() * 100,
-                char: currentScene.value.particles,
-                speed: Math.random() * 0.5 + 0.1 // Adjusted for requestAnimationFrame
+                char: currentScene.value.particleChar,
+                speed: Math.random() * 0.5 + 0.1,
+                color: currentScene.value.particleColor
             });
         }
     };
@@ -136,7 +142,7 @@ const app = createApp({
             class="particle"
             v-for="(particle, index) in sceneParticles"
             :key="index"
-            :style="{ left: particle.x + '%', top: particle.y + '%' }"
+            :style="{ left: particle.x + '%', top: particle.y + '%', color: particle.color }"
         >
             {{ particle.char }}
         </div>
