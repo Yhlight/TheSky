@@ -48,7 +48,7 @@ const THEMES = [
 const CFG = {
     baseSpeed: 4,     // 默认速度
     boostSpeed: 18,   // 加速后速度
-    gravity: 0.2,     // 玩家下落速度
+    drag: 0.98,       // 速度衰减系数 (摩擦力)
     transitionFrames: 350, // 场景切换所需帧数
     terrainBaseY: 0.9  // 地面在画面中的位置 (0-1)
 };
@@ -127,17 +127,28 @@ function update(currentTime) {
 
     state.t += dt;
 
-    // 1. 速度平滑控制 (乘以dt)
-    state.speed = lerp(state.speed, state.targetSpeed, 0.05 * dt);
+    // 1. 速度动态控制 (加速与摩擦力)
+    if (state.targetSpeed > state.speed) {
+        // 加速时，快速接近目标速度
+        state.speed = lerp(state.speed, state.targetSpeed, 0.05 * dt);
+    } else {
+        // 减速时，受摩擦力影响自然衰减
+        state.speed = lerp(state.speed, state.targetSpeed, 0.02 * dt); // 缓慢回到基础速度
+        state.speed *= Math.pow(CFG.drag, dt); // 应用摩擦力
+    }
+    // 确保速度不会低于基础速度
+    if (state.speed < CFG.baseSpeed) {
+        state.speed = CFG.baseSpeed;
+    }
 
-    // 2. 玩家垂直运动 (飞行控制)
-    // 让晶体在垂直方向上有一个轻微的、自然的浮动效果，而不是随速度上升
-    const targetY = h * 0.5 + Math.sin(state.t * 0.02) * h * 0.05;
-    const springiness = 0.01; // 使用一个固定的弹性系数
 
-    state.player.vy += (targetY - state.player.y) * springiness * dt; // 弹性跟随
-    state.player.vy *= Math.pow(0.85, dt); // 阻力
-    state.player.y += state.player.vy * dt;
+    // 2. 玩家垂直运动 (柔和浮动)
+    // 彻底移除复杂的弹簧物理，直接将Y坐标绑定到一个平滑的正弦波上
+    // 这将消除所有“下坠”感，实现纯粹的水平飞行感
+    const hoverAmplitude = h * 0.02; // 浮动幅度非常小
+    const hoverFrequency = 0.03;   // 浮动频率
+    state.player.y = h * 0.5 + Math.sin(state.t * hoverFrequency) * hoverAmplitude;
+    state.player.vy = 0; // 不再需要垂直速度
 
     // 玩家拖尾
     state.player.trail.push({ x: state.player.x, y: state.player.y, speed: state.speed });
