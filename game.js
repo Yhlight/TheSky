@@ -119,8 +119,20 @@ window.addEventListener('touchstart', (e) => { e.preventDefault(); state.isAccel
 window.addEventListener('touchend', (e) => { e.preventDefault(); state.isAccelerating = false; });
 
 
-function update() {
-    state.t++;
+function updatePlayer(timestamp) {
+    // 基于时间的sin函数来创建平滑的上下悬浮效果，防止“掉落”
+    // 使用 timestamp (毫秒) 代替 t (帧数) 来获得更平滑、独立于帧率的动画
+    state.player.y = h / 2 + Math.sin(timestamp / 500) * h * 0.05;
+}
+
+function gameLoop(timestamp) {
+    update(timestamp);
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+function update(timestamp) {
+    state.t++; // 仍然保留 t 用于一些基于帧的简单动画
 
     // 1. 玩家水平速度物理模拟
     const targetSpeed = state.isAccelerating ? CFG.playerMaxSpeed : CFG.playerMinSpeed;
@@ -132,15 +144,8 @@ function update() {
         state.player.vx = Math.max(state.player.vx, targetSpeed);
     }
 
-    // 2. 玩家垂直运动 (飞行控制)
-    state.player.vy += CFG.gravity;
-    state.player.y += state.player.vy;
-
-    // 一个简单的边界检查，防止晶体掉出屏幕
-    if (state.player.y > h * 0.9) {
-        state.player.y = h * 0.9;
-        state.player.vy = 0;
-    }
+    // 2. 玩家垂直运动 (悬浮效果)
+    updatePlayer(timestamp);
 
     // 玩家拖尾
     state.player.trail.push({ x: state.player.x, y: state.player.y, speed: state.player.vx });
@@ -162,9 +167,6 @@ function update() {
 
     // 4. 世界生成
     generateWorldEntities();
-
-    draw();
-    requestAnimationFrame(update);
 }
 
 function generateWorldEntities() {
@@ -201,14 +203,26 @@ function generateWorldEntities() {
     }
 
     // 更新实体位置和清理
-    state.props = state.props.filter(o => { o.x -= state.player.vx; return o.x > -200; });
-    state.particles = state.particles.filter(p => {
-        // 粒子受速度影响，向后拉伸
+    // 使用反向循环安全地在迭代时移除道具
+    for (let i = state.props.length - 1; i >= 0; i--) {
+        const p = state.props[i];
+        p.x -= state.player.vx;
+        if (p.x <= -200) {
+            state.props.splice(i, 1);
+        }
+    }
+
+    // 使用反向循环安全地在迭代时移除粒子
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+        const p = state.particles[i];
         p.x += p.vx * lerp(1, 1.5, (state.player.vx / CFG.playerMaxSpeed));
         p.y += p.vy;
-        p.life -= 0.01 + state.player.vx * 0.001; // 速度越快，粒子消失越快
-        return p.life > 0;
-    });
+        p.life -= 0.01 + state.player.vx * 0.001;
+
+        if (p.life <= 0) {
+            state.particles.splice(i, 1);
+        }
+    }
 }
 
 function draw() {
@@ -426,4 +440,4 @@ function drawParticles(ctx, C, alphaScale) {
 }
 
 // 启动循环
-update();
+gameLoop(0);
