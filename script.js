@@ -599,33 +599,25 @@ function drawGroundAndProps(ctx, C) {
 function drawPlayer(ctx, C) {
     const p = state.player;
 
-    // 1. 拖尾 (使用 Lighter 模式，实现真正的光线叠加)
+    // 1. 拖尾 (粒子化)
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter'; // 关键：叠加光线
+    ctx.globalCompositeOperation = 'lighter';
 
-    if (p.trail.length > 2) {
+    p.trail.forEach((point, i) => {
+        const progress = i / p.trail.length; // 0 (tail) to 1 (head)
+
+        // 拖尾末端的粒子更小
+        const size = 2 + progress * 5;
+
+        // 拖尾末端的粒子更透明
+        const alpha = progress * 0.7;
+
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
         ctx.beginPath();
-        ctx.moveTo(p.trail[0].x, p.trail[0].y);
+        ctx.arc(point.x, point.y, size, 0, Math.PI * 2);
+        ctx.fill();
+    });
 
-        for (let i = 1; i < p.trail.length - 1; i++) {
-            const point = p.trail[i];
-            const nextPoint = p.trail[i + 1];
-
-            // 确保线宽不会小于 0.5。这是修复 IndexSizeError 的关键。
-            const lineWidth = Math.max(0.5, 4 + p.trail[i].speed * 0.8);
-
-            // 贝塞尔曲线平滑连接
-            const xc = (point.x + nextPoint.x) / 2;
-            const yc = (point.y + nextPoint.y) / 2;
-            ctx.quadraticCurveTo(point.x, point.y, xc, yc);
-
-            // 越靠近尾巴，光线越柔和
-            const alpha = i / p.trail.length;
-            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.6})`;
-            ctx.lineWidth = lineWidth; // 使用安全的线宽
-            ctx.stroke();
-        }
-    }
     ctx.restore();
 
     // 2. 角色本体 (核心发光体)
@@ -636,8 +628,16 @@ function drawPlayer(ctx, C) {
     ctx.shadowBlur = 50;
     ctx.shadowColor = 'white';
     ctx.fillStyle = C.accent;
+
+    // 旋转并绘制一个更像晶体的形状
     ctx.rotate(state.t * 0.05);
-    ctx.fillRect(-10, -10, 20, 20);
+    ctx.beginPath();
+    ctx.moveTo(0, -12);
+    ctx.lineTo(10, 0);
+    ctx.lineTo(0, 12);
+    ctx.lineTo(-10, 0);
+    ctx.closePath();
+    ctx.fill();
 
     ctx.restore();
 }
