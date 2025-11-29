@@ -345,8 +345,8 @@ const state = {
     worldScrollX: 0, // 累积的世界滚动距离
     isAccelerating: false, // 是否正在加速
 
-    currentThemeIdx: 0,
-    nextThemeIdx: 1,
+    currentTheme: null,
+    nextTheme: null,
     transitionTimer: 0,
     transitionProgress: 0, // 0-1 的过渡进度
     isFadingOut: false, // UI淡出状态
@@ -393,15 +393,19 @@ const Director = {
     // 现有的20个主题现在作为“灵感”或“基础模板”
     baseThemes: [...THEMES],
 
-    // 用于程序化生成名称的词库
+    // 用于程序化生成名称的词库 (按色系分类)
     nameParts: {
-        adjectives: [
-            { en: "Crimson", ch: "猩红" }, { en: "Golden", ch: "金色" },
-            { en: "Azure", ch: "蔚蓝" }, { en: "Verdant", ch: "翠绿" },
-            { en: "Starlight", ch: "星光" }, { en: "Whispering", ch: "低语" },
-            { en: "Forgotten", ch: "遗忘" }, { en: "Sunken", ch: "沉没" },
-            { en: "Crystal", ch: "水晶" }, { en: "Obsidian", ch: "黑曜石" }
-        ],
+        adjectives: {
+            reds: [{ en: "Crimson", ch: "猩红" }, { en: "Ruby", ch: "宝石" }, { en: "Scarlet", ch: "绯红" }],
+            oranges: [{ en: "Golden", ch: "金色" }, { en: "Amber", ch: "琥珀" }, { en: "Bronze", ch: "青铜" }],
+            yellows: [{ en: "Sun-Kissed", ch: "曜日" }, { en: "Gilded", ch: "镀金" }, { en: "Topaz", ch: "黄玉" }],
+            greens: [{ en: "Verdant", ch: "翠绿" }, { en: "Emerald", ch: "翡翠" }, { en: "Mossy", ch: "苍苔" }],
+            cyans: [{ en: "Azure", ch: "蔚蓝" }, { en: "Cyan", ch: "青色" }, { en: "Turquoise", ch: "绿松石" }],
+            blues: [{ en: "Cobalt", ch: "钴蓝" }, { en: "Sapphire", ch: "宝蓝" }, { en: "Midnight", ch: "午夜" }],
+            purples: [{ en: "Violet", ch: "紫罗兰" }, { en: "Amethyst", ch: "紫晶" }, { en: "Indigo", ch: "靛青" }],
+            pinks: [{ en: "Rose", ch: "蔷薇" }, { en: "Fuchsia", ch: "洋红" }, { en: "Coral", ch: "珊瑚" }],
+            neutrals: [{ en: "Starlight", ch: "星光" }, { en: "Whispering", ch: "低语" }, { en: "Forgotten", ch: "遗忘" }, { en: "Sunken", ch: "沉没" }, { en: "Crystal", ch: "水晶" }, { en: "Obsidian", ch: "黑曜石" }]
+        },
         nouns: [
             { en: "Expanse", ch: "苍穹" }, { en: "Chasm", ch: "峡谷" },
             { en: "Citadel", ch: "堡垒" }, { en: "Sanctuary", ch: "圣殿" },
@@ -411,15 +415,52 @@ const Director = {
         ]
     },
 
-    // 初始化 Director，准备好生成逻辑
+    // 初始化 Director
     init: function() {
-        // 可以在这里预处理 baseThemes，提取色彩数据等
         console.log("Director initialized. Ready to generate infinite worlds.");
     },
 
-    // 1.3 名称生成器 (已更新为双语)
-    generateName: function() {
-        const adj = this.nameParts.adjectives[Math.floor(Math.random() * this.nameParts.adjectives.length)];
+    // 2.2 色彩感知名称生成器
+    _getHue: function(hex) {
+        const rgb = hexToRgb(hex);
+        const r = rgb[0] / 255;
+        const g = rgb[1] / 255;
+        const b = rgb[2] / 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h;
+        if (max === min) {
+            h = 0; // achromatic
+        } else {
+            const d = max - min;
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+        return h * 360;
+    },
+    generateName: function(palette) {
+        const hue = this._getHue(palette.ground);
+        let adjPool;
+
+        if (hue >= 330 || hue < 20) adjPool = this.nameParts.adjectives.reds;
+        else if (hue < 45) adjPool = this.nameParts.adjectives.oranges;
+        else if (hue < 65) adjPool = this.nameParts.adjectives.yellows;
+        else if (hue < 150) adjPool = this.nameParts.adjectives.greens;
+        else if (hue < 190) adjPool = this.nameParts.adjectives.cyans;
+        else if (hue < 250) adjPool = this.nameParts.adjectives.blues;
+        else if (hue < 290) adjPool = this.nameParts.adjectives.purples;
+        else if (hue < 330) adjPool = this.nameParts.adjectives.pinks;
+        else adjPool = this.nameParts.adjectives.neutrals;
+
+        // 30% 概率使用中性词增加多样性
+        if (Math.random() < 0.3) {
+            adjPool = adjPool.concat(this.nameParts.adjectives.neutrals);
+        }
+
+        const adj = adjPool[Math.floor(Math.random() * adjPool.length)];
         const noun = this.nameParts.nouns[Math.floor(Math.random() * this.nameParts.nouns.length)];
         return {
             en: `${adj.en.toUpperCase()} ${noun.en.toUpperCase()}`,
@@ -504,13 +545,13 @@ const Director = {
         };
     },
 
-    // 1.4 整合生成逻辑
+    // 1.4 整合生成逻辑 (已更新)
     generateNextTheme: function() {
-        const name = this.generateName();
         const palette = this.generatePalette();
+        const name = this.generateName(palette); // 传入调色板
         const params = this.generateParams();
 
-        return {
+        const newTheme = {
             name: name,
             sky: palette.sky,
             sun: palette.sun,
@@ -550,7 +591,6 @@ const Director = {
         if (Math.random() < 0.1) newTheme.tags.push('void');
         if (Math.random() < 0.15 && newTheme.tags.includes('rainy')) newTheme.tags.push('stormy');
         if (newTheme.tags.includes('cold') && Math.random() < 0.3) newTheme.tags.push('aurora');
-
 
         return newTheme;
     }
@@ -789,17 +829,12 @@ function update(deltaTime, timestamp) {
     if (state.transitionTimer > THEME_DURATION_MS) {
         state.transitionTimer = 0;
 
-        // 旧逻辑: state.currentThemeIdx = state.nextThemeIdx;
-        // 旧逻辑: state.nextThemeIdx = (state.currentThemeIdx + 1) % THEMES.length;
-        // 新逻辑：用 Director 生成的新场景替换当前的“下一个”场景
-        THEMES[state.nextThemeIdx] = Director.generateNextTheme();
-
-        state.currentThemeIdx = state.nextThemeIdx;
-        // 为了确保我们总是在两个有效的索引之间切换，我们使用0和1作为“缓冲区”
-        state.nextThemeIdx = (state.currentThemeIdx === 0) ? 1 : 0;
+        // 引擎核心切换逻辑
+        state.currentTheme = state.nextTheme;
+        state.nextTheme = Director.generateNextTheme();
 
         // 更新文本并淡入
-        uiName.innerText = THEMES[state.currentThemeIdx].name[UILang];
+        uiName.innerText = state.currentTheme.name[UILang];
         uiName.classList.add('visible');
         state.isFadingOut = false; // 重置淡出状态
         state.transitionProgress = 0; // 重置进度
@@ -819,7 +854,7 @@ function update(deltaTime, timestamp) {
 
 // --- 新增：场景演出系统 ---
 function handleCinematicEvents() {
-    const T1 = THEMES[state.currentThemeIdx];
+    const T1 = state.currentTheme;
 
     // --- 过渡事件：流星雨 (基于标签) ---
     if (T1.tags.includes('void') && state.transitionProgress > 0.4 && state.transitionProgress < 0.6) {
@@ -1027,8 +1062,8 @@ function generateNoiseValue(x, style, prop) {
 function generateTerrainChunk(chunkId) {
     if (state.terrain.chunks.has(chunkId)) return;
 
-    const theme1 = THEMES[state.currentThemeIdx];
-    const theme2 = THEMES[state.nextThemeIdx];
+    const theme1 = state.currentTheme;
+    const theme2 = state.nextTheme;
     // !! 移除 progress，因为混合将在渲染时进行
 
     const chunk = {
@@ -1091,8 +1126,8 @@ function generateWorldEntities() {
     // Props (相对稀疏)
     if (Math.random() < 0.015) {
         // *** 混合生成道具 ***
-        const T1 = THEMES[state.currentThemeIdx];
-        const T2 = THEMES[state.nextThemeIdx];
+        const T1 = state.currentTheme;
+        const T2 = state.nextTheme;
         const propTheme = (Math.random() < state.transitionProgress) ? T2 : T1;
 
         if (propTheme.propType !== 'none') {
@@ -1115,7 +1150,7 @@ function generateWorldEntities() {
             vy: random(-1, 1),
             life: 1,
             size: random(1, 3),
-            type: THEMES[state.currentThemeIdx].propType
+            type: state.currentTheme.propType
         });
     }
 
@@ -1153,8 +1188,8 @@ function generateWorldEntities() {
 function draw(timestamp) {
     const progress = state.transitionProgress;
 
-    const T1 = THEMES[state.currentThemeIdx];
-    const T2 = THEMES[state.nextThemeIdx];
+    const T1 = state.currentTheme;
+    const T2 = state.nextTheme;
 
     // 混合颜色配置
     const C = {
@@ -1283,7 +1318,7 @@ function drawNpcs(ctx, C) {
 const auroraNoise = new ValueNoise(Math.random());
 
 function updateAurora(timestamp) {
-    const theme = THEMES[state.currentThemeIdx];
+    const theme = state.currentTheme;
     if (!theme.tags.includes('aurora')) {
         state.aurora.bands = []; // 如果场景没有aurora标签，则清空
         return;
@@ -1731,7 +1766,7 @@ function drawGroundAndProps(ctx, C, progress) {
     drawTerrainLayerFromChunks(ctx, C.ground, 2, progress); // 2是地面的图层索引
 
     // --- 新增：地之火 - 脉动的熔岩裂隙 ---
-    const theme = THEMES[state.currentThemeIdx];
+    const theme = state.currentTheme;
     if (theme.tags.includes('fire')) {
         const pulseAlpha = 0.6 + Math.sin(timestamp / 400) * 0.4; // 脉动透明度
 
@@ -1798,12 +1833,12 @@ function drawGroundAndProps(ctx, C, progress) {
         ctx.rotate(p.rot);
 
         // --- 新增：风之语 - 互动式植物摇曳 ---
-        const theme = THEMES[state.currentThemeIdx];
+        const theme = state.currentTheme;
         const plantTypes = ['grass', 'branches', 'leaf', 'corals', 'mushrooms'];
         if (theme.tags.includes('nature') && plantTypes.includes(p.type)) {
             const windStrength = state.player.velocity.x / CFG.playerMaxSpeed;
-            // 使用 sin 给一个基础的、呼吸般的摆动，再加上速度带来的强烈摆动
-            const swayAngle = Math.sin(timestamp / 500 + p.worldX) * 0.1 + windStrength * -0.5;
+            // [修复] 移除 timestamp 依赖，只根据世界坐标计算基础摆动
+            const swayAngle = Math.sin(p.worldX / 50) * 0.1 + windStrength * -0.5;
             ctx.rotate(swayAngle);
         }
 
@@ -1916,14 +1951,11 @@ function drawParticles(ctx, C, alphaScale) {
 
 // 初始化UI
 function initUI() {
-    // 新的初始化逻辑：用生成的场景替换掉最初的几个“模板”场景
-    // 这样，游戏从一开始就是完全随机的
-    THEMES[0] = Director.generateNextTheme();
-    THEMES[1] = Director.generateNextTheme();
-    state.currentThemeIdx = 0;
-    state.nextThemeIdx = 1;
+    // 新的初始化逻辑：直接生成当前和下一个主题对象
+    state.currentTheme = Director.generateNextTheme();
+    state.nextTheme = Director.generateNextTheme();
 
-    uiName.innerText = THEMES[state.currentThemeIdx].name[UILang];
+    uiName.innerText = state.currentTheme.name[UILang];
     uiName.classList.add('visible');
 }
 
@@ -1938,7 +1970,7 @@ function updateDistantEntities() {
     state.distantEntities = state.distantEntities.filter(e => e.life > 0 && e.x > -200);
 
     // 2. 根据当前场景生成新实体 (基于标签)
-    const theme = THEMES[state.currentThemeIdx];
+    const theme = state.currentTheme;
 
     if (theme.tags.includes('heavenly') && theme.tags.includes('city') && Math.random() < 0.01 && state.distantEntities.length < 3) {
         state.distantEntities.push({
