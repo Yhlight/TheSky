@@ -6,7 +6,9 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d', { alpha: false });
 const uiName = document.getElementById('scene-name');
+const bgMusic = document.getElementById('bg-music');
 
+let isMusicStarted = false;
 let UILang = 'ch'; // 'en' or 'ch'
 let w, h;
 let animationFrameId = null; // 用于暂停/恢复
@@ -426,28 +428,54 @@ const Director = {
         return `#${f(0)}${f(8)}${f(4)}`;
     },
 
-    // 1.2 程序化调色板生成器 (基于分裂互补色)
+    // 1.2 程序化调色板生成器 (多模型)
     generatePalette: function() {
-        const baseHue = Math.random() * 360; // 随机一个基础色相
-        const saturation = random(40, 70); // 饱和度保持在中等范围
-        const lightness = random(30, 60); // 亮度
+        const baseHue = Math.random() * 360;
+        const saturation = random(40, 70);
+        const lightness = random(30, 60);
+        const model = ['split', 'analogous', 'triadic'][Math.floor(Math.random() * 3)];
 
-        // 天空: 基础色相的两个变体
-        const sky1 = this._hslToHex(baseHue, saturation, lightness + 10);
-        const sky2 = this._hslToHex((baseHue + 20) % 360, saturation, lightness - 10);
+        let sky1, sky2, ground, mountNear, mountFar, accent, sun, fog;
 
-        // 地面/山脉: 分裂互补色
-        const complementHue1 = (baseHue + 150) % 360;
-        const complementHue2 = (baseHue + 210) % 360;
+        switch (model) {
+            case 'analogous': // 相似色
+                sky1 = this._hslToHex(baseHue, saturation, lightness + 15);
+                sky2 = this._hslToHex((baseHue + 30) % 360, saturation, lightness);
+                ground = this._hslToHex((baseHue + 60) % 360, saturation - 20, lightness - 20);
+                mountNear = this._hslToHex((baseHue + 45) % 360, saturation - 15, lightness - 10);
+                mountFar = this._hslToHex((baseHue + 15) % 360, saturation - 10, lightness + 5);
+                accent = this._hslToHex(baseHue, 100, 95);
+                sun = this._hslToHex((baseHue + 15) % 360, saturation + 20, 90);
+                fog = this._hslToHex((baseHue + 30) % 360, saturation - 10, lightness + 10);
+                break;
 
-        const ground = this._hslToHex(complementHue1, saturation - 10, lightness - 15);
-        const mountNear = this._hslToHex(complementHue1, saturation - 20, lightness - 5);
-        const mountFar = this._hslToHex(complementHue2, saturation - 25, lightness + 5);
+            case 'triadic': // 三色系
+                const hue2 = (baseHue + 120) % 360;
+                const hue3 = (baseHue + 240) % 360;
+                sky1 = this._hslToHex(baseHue, saturation, lightness + 10);
+                sky2 = this._hslToHex(baseHue, saturation - 10, lightness - 5);
+                ground = this._hslToHex(hue2, saturation - 10, lightness - 15);
+                mountNear = this._hslToHex(hue2, saturation, lightness - 5);
+                mountFar = this._hslToHex(hue3, saturation - 20, lightness);
+                accent = this._hslToHex(hue3, saturation + 20, 80);
+                sun = this._hslToHex(baseHue, 90, 90);
+                fog = this._hslToHex(hue2, saturation - 30, lightness + 15);
+                break;
 
-        // 太阳/高光/雾气: 基础色相的明亮变体或互补色的柔和变体
-        const accent = this._hslToHex(baseHue, saturation + 20, lightness + 30);
-        const sun = this._hslToHex((baseHue + 40) % 360, saturation + 10, 90);
-        const fog = this._hslToHex(complementHue2, saturation - 30, lightness + 15);
+            case 'split': // 分裂互补色 (默认)
+            default:
+                sky1 = this._hslToHex(baseHue, saturation, lightness + 10);
+                sky2 = this._hslToHex((baseHue + 20) % 360, saturation, lightness - 10);
+                const complementHue1 = (baseHue + 150) % 360;
+                const complementHue2 = (baseHue + 210) % 360;
+                ground = this._hslToHex(complementHue1, saturation - 10, lightness - 15);
+                mountNear = this._hslToHex(complementHue1, saturation - 20, lightness - 5);
+                mountFar = this._hslToHex(complementHue2, saturation - 25, lightness + 5);
+                accent = this._hslToHex(baseHue, saturation + 20, lightness + 30);
+                sun = this._hslToHex((baseHue + 40) % 360, saturation + 10, 90);
+                fog = this._hslToHex(complementHue2, saturation - 30, lightness + 15);
+                break;
+        }
 
         return { sky: [sky1, sky2], ground, mountNear, mountFar, accent, sun, fog };
     },
@@ -581,15 +609,32 @@ resize();
 
 // --- 核心交互与循环 ---
 
+function startMusic() {
+    if (!isMusicStarted && bgMusic.paused) {
+        bgMusic.play().catch(e => console.error("Audio play failed:", e));
+        isMusicStarted = true;
+    }
+}
+
 window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' || e.code === 'KeyD') state.isAccelerating = true;
+    if (e.code === 'Space' || e.code === 'KeyD') {
+        state.isAccelerating = true;
+        startMusic();
+    }
 });
 window.addEventListener('keyup', (e) => {
     if (e.code === 'Space' || e.code === 'KeyD') state.isAccelerating = false;
 });
-window.addEventListener('mousedown', () => state.isAccelerating = true);
+window.addEventListener('mousedown', () => {
+    state.isAccelerating = true;
+    startMusic();
+});
 window.addEventListener('mouseup', () => state.isAccelerating = false);
-window.addEventListener('touchstart', (e) => { e.preventDefault(); state.isAccelerating = true; }, { passive: false });
+window.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    state.isAccelerating = true;
+    startMusic();
+}, { passive: false });
 window.addEventListener('touchend', (e) => { e.preventDefault(); state.isAccelerating = false; });
 
 
@@ -1107,9 +1152,17 @@ function draw(timestamp) {
     const sunX = w * 0.8;
     const sunY = h * C.sunY; // 使用插值后的 Y 坐标
 
+    // 2.2 过渡时的光晕脉冲效果
+    let pulseFactor = 1.0;
+    if (state.transitionProgress > 0.45 && state.transitionProgress < 0.55) {
+        // 使用sin曲线在[0.45, 0.55]区间创建一个从0到1再回到0的平滑脉冲
+        const pulseProgress = (state.transitionProgress - 0.45) * 10; // 将区间映射到 [0, 1]
+        pulseFactor = 1.0 + Math.sin(pulseProgress * Math.PI) * 0.5; // 脉冲强度增加50%
+    }
+
     ctx.globalCompositeOperation = 'screen';
-    const safeR0 = Math.max(1, C.sunSize / 2);
-    const safeR1 = Math.max(2, C.sunSize * 5);
+    const safeR0 = Math.max(1, (C.sunSize / 2) * pulseFactor);
+    const safeR1 = Math.max(2, (C.sunSize * 5) * pulseFactor);
     const sunGrad = ctx.createRadialGradient(sunX, sunY, safeR0, sunX, sunY, safeR1);
     sunGrad.addColorStop(0, C.sun);
     sunGrad.addColorStop(1, 'transparent');
@@ -1615,32 +1668,45 @@ function drawGroundAndProps(ctx, C, progress) {
 function drawPlayer(ctx, C) {
     const p = state.player;
 
-    // 1. 拖尾 (使用 Lighter 模式，实现真正的光线叠加)
+    // 1. 拖尾 (丝绸效果)
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter'; // 关键：叠加光线
+    ctx.globalCompositeOperation = 'lighter';
 
-    if (p.trail.length > 2) {
+    for (let i = 0; i < p.trail.length - 1; i++) {
+        const point1 = p.trail[i];
+        const point2 = p.trail[i + 1];
+
+        // 基础宽度随速度和位置变化 (越靠近头部越宽)
+        const baseWidth = (2 + point1.speed * 0.5) * (i / p.trail.length);
+
+        // 计算两点间的向量和法线
+        const dx = point2.x - point1.x;
+        const dy = point2.y - point1.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const nx = -dy / dist;
+        const ny = dx / dist;
+
+        // 创建一个径向渐变作为笔刷
+        const grad = ctx.createLinearGradient(
+            point1.x - nx * baseWidth, point1.y - ny * baseWidth,
+            point1.x + nx * baseWidth, point1.y + ny * baseWidth
+        );
+
+        const alpha = (i / p.trail.length) * 0.5; // 透明度
+        grad.addColorStop(0, `rgba(255, 255, 255, 0)`);
+        grad.addColorStop(0.5, `rgba(255, 255, 255, ${alpha})`);
+        grad.addColorStop(1, `rgba(255, 255, 255, 0)`);
+
+        ctx.fillStyle = grad;
+
+        // 绘制连接两点的四边形
         ctx.beginPath();
-        ctx.moveTo(p.trail[0].x, p.trail[0].y);
-
-        for (let i = 1; i < p.trail.length - 1; i++) {
-            const point = p.trail[i];
-            const nextPoint = p.trail[i + 1];
-
-            // 确保线宽不会小于 0.5。这是修复 IndexSizeError 的关键。
-            const lineWidth = Math.max(0.5, 4 + p.trail[i].speed * 0.8);
-
-            // 贝塞尔曲线平滑连接
-            const xc = (point.x + nextPoint.x) / 2;
-            const yc = (point.y + nextPoint.y) / 2;
-            ctx.quadraticCurveTo(point.x, point.y, xc, yc);
-
-            // 越靠近尾巴，光线越柔和
-            const alpha = i / p.trail.length;
-            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.6})`;
-            ctx.lineWidth = lineWidth; // 使用安全的线宽
-            ctx.stroke();
-        }
+        ctx.moveTo(point1.x - nx * baseWidth, point1.y - ny * baseWidth);
+        ctx.lineTo(point2.x - nx * baseWidth, point2.y - ny * baseWidth);
+        ctx.lineTo(point2.x + nx * baseWidth, point2.y + ny * baseWidth);
+        ctx.lineTo(point1.x + nx * baseWidth, point1.y + ny * baseWidth);
+        ctx.closePath();
+        ctx.fill();
     }
     ctx.restore();
 
