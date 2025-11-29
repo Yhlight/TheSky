@@ -59,9 +59,9 @@ const THEMES = [
 
 // --- 配置 ---
 const CFG = {
-    playerMinSpeed: 1.5,    // 基础巡航速度 (风力可能使其低于此值)
-    playerMaxSpeed: 8,   // 加速时最大速度
-    playerThrust: 0.1,    // 玩家加速时的推力
+    playerMinSpeed: 0.8,    // 基础巡航速度 (风力可能使其低于此值)
+    playerMaxSpeed: 4,   // 加速时最大速度
+    playerThrust: 0.05,    // 玩家加速时的推力
     dragCoefficient: 0.98, // 阻力系数 (越接近1，速度衰减越慢)
     windForceScale: 0.15,  // 風力強度（略微增强以实现速度波动）
     hoverForce: 0.01,   // 悬浮/回中力
@@ -252,8 +252,15 @@ function update(timestamp) {
 
     // 修正玩家的横向位置，使其感觉在“前进”而不是“移动”
     const speedProgress = Math.max(0, p.velocity.x / CFG.playerMaxSpeed);
-    const targetX = w * CFG.playerInitialX + lerp(0, w * 0.15, speedProgress);
-    p.x = lerp(p.x, targetX, 0.02); // 平滑地移动到目标X (降低速率以消除后退感)
+    let targetX = w * CFG.playerInitialX + lerp(0, w * 0.15, speedProgress);
+
+    // 如果目标位置在当前位置的左边，我们不会立即跳回去，而是非常缓慢地向它移动
+    if (targetX < p.x) {
+        p.x = lerp(p.x, targetX, 0.005);
+    } else {
+        // 否则，正常地（但仍然很平滑地）向右移动
+        p.x = lerp(p.x, targetX, 0.02);
+    }
 
     // e) 边界检查
     if (p.y < h * 0.1) { p.y = h * 0.1; p.velocity.y *= -0.5; } // 碰撞反弹
