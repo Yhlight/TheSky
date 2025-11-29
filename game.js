@@ -66,19 +66,20 @@ const CFG = {
     windForceScale: 0.15,  // 風力強度（略微增强以实现速度波动）
     hoverForce: 0.01,   // 悬浮/回中力
     hoverDamping: 0.95, // 悬浮阻尼，防止过度振荡
-    transitionFrames: 350, // 场景切换所需帧数
+    themeDuration: 12000, // 每个主题的持续时间 (毫秒)
+    transitionDuration: 4000,  // 场景切换所需时间 (毫秒)
     terrainBaseY: 0.9,  // 地面在画面中的位置 (0-1)
     playerInitialX: 0.2 // 玩家初始 X 坐标 (0-1, 相对于屏幕宽度)
 };
 
 // --- 状态管理 ---
 const state = {
-    t: 0, // 全局时间
+    t: 0, // 全局时间, 用于噪声滚动
     isAccelerating: false, // 是否正在加速
 
     currentThemeIdx: 0,
     nextThemeIdx: 1,
-    transitionTimer: 0,
+    themeStartTime: 0, // 当前主题开始的时间戳
     transitionProgress: 0, // 0-1 的过渡进度
 
     player: {
@@ -103,10 +104,9 @@ const hexToRgb = (hex) => {
     let bigint = parseInt(hex.slice(1), 16);
     return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
 }
-// 颜色插值，返回RGB字符串
-const lerpColor = (c1, c2, t) => {
-    const rgb1 = hexToRgb(c1);
-    const rgb2 = hexToRgb(c2);
+
+// 优化的颜色插值，直接操作RGB数组
+const lerpColorRgb = (rgb1, rgb2, t) => {
     const r = Math.round(lerp(rgb1[0], rgb2[0], t));
     const g = Math.round(lerp(rgb1[1], rgb2[1], t));
     const b = Math.round(lerp(rgb1[2], rgb2[2], t));
@@ -271,24 +271,26 @@ function update(timestamp) {
     const maxTrailLength = 3 + Math.floor(state.player.velocity.x * 1.5); // 拖尾长度随速度变化
     if (state.player.trail.length > maxTrailLength) state.player.trail.shift();
 
-    // 3. 场景导演与过渡
-    const THEME_DURATION_FRAMES = CFG.transitionFrames * 3;
-    const TRANSITION_START_FRAME = THEME_DURATION_FRAMES - CFG.transitionFrames;
+    // --- 3. 场景导演与过渡 (基于时间) ---
+    const elapsedTime = timestamp - state.themeStartTime;
+    const transitionStartTime = CFG.themeDuration - CFG.transitionDuration;
 
-    state.transitionTimer++;
-
-    // 检查是否应该开始过渡
-    if (state.transitionTimer === TRANSITION_START_FRAME) {
-        uiName.style.opacity = 0; // 开始淡出当前名称
+    // 检查是否应该开始UI淡出
+    if (elapsedTime >= transitionStartTime && elapsedTime < transitionStartTime + 500) { // 在过渡开始时淡出
+        uiName.style.opacity = 0;
     }
 
     // 计算并存储过渡进度
-    const rawProgress = (state.transitionTimer - TRANSITION_START_FRAME) / CFG.transitionFrames;
-    state.transitionProgress = smoothstep(Math.max(0, Math.min(1, rawProgress)));
+    if (elapsedTime >= transitionStartTime) {
+        const rawProgress = (elapsedTime - transitionStartTime) / CFG.transitionDuration;
+        state.transitionProgress = smoothstep(Math.max(0, Math.min(1, rawProgress)));
+    } else {
+        state.transitionProgress = 0;
+    }
 
     // 当一个主题的完整持续时间结束后
-    if (state.transitionTimer > THEME_DURATION_FRAMES) {
-        state.transitionTimer = 0;
+    if (elapsedTime > CFG.themeDuration) {
+        state.themeStartTime = timestamp; // 重置计时器
         state.currentThemeIdx = state.nextThemeIdx;
         state.nextThemeIdx = (state.currentThemeIdx + 1) % THEMES.length;
 
@@ -367,16 +369,16 @@ function draw(timestamp) {
     const T1 = THEMES[state.currentThemeIdx];
     const T2 = THEMES[state.nextThemeIdx];
 
-    // 混合颜色配置
+    // 混合颜色配置 (使用预计算的RGB值)
     const C = {
-        skyTop: lerpColor(T1.sky[0], T2.sky[0], progress),
-        skyBot: lerpColor(T1.sky[1], T2.sky[1], progress),
-        sun: lerpColor(T1.sun, T2.sun, progress),
-        mountFar: lerpColor(T1.mountFar, T2.mountFar, progress),
-        mountNear: lerpColor(T1.mountNear, T2.mountNear, progress),
-        ground: lerpColor(T1.ground, T2.ground, progress),
-        accent: lerpColor(T1.accent, T2.accent, progress),
-        fogColor: lerpColor(T1.fogColor, T2.fogColor, progress),
+        skyTop: lerpColorRgb(T1.skyRgb[0], T2.skyRgb[0], progress),
+        skyBot: lerpColorRgb(T1.skyRgb[1], T2.skyRgb[1], progress),
+        sun: lerpColorRgb(T1.sunRgb, T2.sunRgb, progress),
+        mountFar: lerpColorRgb(T1.mountFarRgb, T2.mountFarRgb, progress),
+        mountNear: lerpColorRgb(T1.mountNearRgb, T2.mountNearRgb, progress),
+        ground: lerpColorRgb(T1.groundRgb, T2.groundRgb, progress),
+        accent: lerpColorRgb(T1.accentRgb, T2.accentRgb, progress),
+        fogColor: lerpColorRgb(T1.fogColorRgb, T2.fogColorRgb, progress),
         sunSize: lerp(T1.sunSize, T2.sunSize, progress),
         sunY: lerp(T1.sunY, T2.sunY, progress),
         fogAlpha: lerp(T1.fogAlpha, T2.fogAlpha, progress)
@@ -625,7 +627,25 @@ function initUI() {
     uiName.style.opacity = 0.9;
 }
 
+// --- 主程序启动 ---
+
+function initThemes() {
+    // 预计算颜色值以优化性能
+    THEMES.forEach(theme => {
+        for (const key in theme) {
+            if (typeof theme[key] === 'string' && theme[key].startsWith('#')) {
+                theme[key + 'Rgb'] = hexToRgb(theme[key]);
+            } else if (Array.isArray(theme[key]) && typeof theme[key][0] === 'string' && theme[key][0].startsWith('#')) {
+                // 处理颜色数组 (例如 sky)
+                theme[key + 'Rgb'] = theme[key].map(hexToRgb);
+            }
+        }
+    });
+}
+
 // 启动循环
+initThemes();
 initUI();
 lastTimestamp = performance.now();
+state.themeStartTime = lastTimestamp; // 初始化主题计时器
 animationFrameId = requestAnimationFrame(gameLoop);
