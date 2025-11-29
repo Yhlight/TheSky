@@ -1798,8 +1798,10 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
                 const y1 = lerp(pointData1.y1, pointData1.y2, progress);
                 const y2 = lerp(pointData2.y1, pointData2.y2, progress);
                 groundY = lerp(y1, y2, t);
-            } else if (pointData1) {
-                groundY = lerp(pointData1.y1, pointData1.y2, progress);
+            } else {
+                // If we can't interpolate, it's better to not draw the prop for a frame
+                // than to have it visually jump. This can happen at the very edge of terrain generation.
+                continue;
             }
         }
 
