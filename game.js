@@ -103,10 +103,10 @@ const THEMES = [
 
 // --- 配置 ---
 const CFG = {
-    playerMinSpeed: 1.5,    // 基础巡航速度 (风力可能使其低于此值)
-    playerMaxSpeed: 20,      // 大幅提高最大速度
-    playerThrust: 0.1,       // 更强的推力
-    dragCoefficient: 0.98,   // 略微增加阻力以控制高速
+    playerMinSpeed: 4,    // 基础巡航速度 (风力可能使其低于此值)
+    playerMaxSpeed: 35,      // 大幅提高最大速度
+    playerThrust: 0.3,       // 更强的推力
+    dragCoefficient: 0.99,   // 略微增加阻力以控制高速
     windForceScale: 0.1,
     hoverForce: 0.01,
     hoverDamping: 0.95,
