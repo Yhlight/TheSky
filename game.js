@@ -17,6 +17,7 @@ let isPaused = false;
 const THEMES = [
     {
         name: "SPRING AWAKENING",
+        tags: ['bright', 'nature', 'mountain', 'spring'],
         sky: ['#64b5f6', '#e91e63'], // 天空蓝更柔和
         sun: '#fff9c4', sunSize: 70, sunY: 0.3, // 太阳淡黄
         mountFar: '#a5d6a7', mountNear: '#81c784',
@@ -29,6 +30,7 @@ const THEMES = [
     },
     {
         name: "GOLDEN RADIANCE",
+        tags: ['bright', 'ruins', 'mountain', 'dry'],
         sky: ['#ffb74d', '#ff9800'],
         sun: '#fffde7', sunSize: 120, sunY: 0.4, // 更亮更耀眼的太阳
         mountFar: '#bcaaa4', mountNear: '#8d6e63',
@@ -41,6 +43,7 @@ const THEMES = [
     },
     {
         name: "STARLIGHT VOID",
+        tags: ['dark', 'space', 'crystals', 'void'],
         sky: ['#00003f', '#2c2c54'], // 更深邃的太空
         sun: '#ffffff', sunSize: 30, sunY: 0.25, // 月亮/远星
         mountFar: '#303f9f', mountNear: '#3f51b5',
@@ -53,6 +56,7 @@ const THEMES = [
     },
     {
         name: "AUTUMN EMBRACE",
+        tags: ['warm', 'nature', 'mountain', 'windy'],
         sky: ['#ffab91', '#e65100'],
         sun: '#fff3e0', sunSize: 70, sunY: 0.35,
         mountFar: '#bcaaa4', mountNear: '#a1887f',
@@ -65,6 +69,7 @@ const THEMES = [
     },
     {
         name: "AZURE DREAM",
+        tags: ['bright', 'ocean', 'calm'],
         sky: ['#4dd0e1', '#0097a7'], // 更青色的天空
         sun: '#e0f7fa', sunSize: 80, sunY: 0.2,
         mountFar: '#b2ebf2', mountNear: '#80deea',
@@ -77,6 +82,7 @@ const THEMES = [
     },
     {
         name: "NEON GRID",
+        tags: ['dark', 'city', 'cyberpunk'],
         sky: ['#000000', '#5e35b1'],
         sun: '#f06292', sunSize: 90, sunY: 0.5,
         mountFar: '#283593', mountNear: '#1a237e', // 更深的背景
@@ -89,6 +95,7 @@ const THEMES = [
     },
     {
         name: "FROZEN WASTELAND",
+        tags: ['cold', 'ice', 'jagged', 'desolate'],
         sky: ['#b0bec5', '#78909c'], // 更冷的灰色
         sun: '#f5f5f5', sunSize: 50, sunY: 0.2,
         mountFar: '#cfd8dc', mountNear: '#b0bec5',
@@ -101,6 +108,7 @@ const THEMES = [
     },
     {
         name: "VOLCANIC CHASM",
+        tags: ['dark', 'fire', 'jagged', 'hostile'],
         sky: ['#210806', '#8c1102'], // 暗红天空
         sun: '#ffae3d', sunSize: 150, sunY: 0.6, // 熔岩太阳
         mountFar: '#1a090d', mountNear: '#2b0f15',
@@ -113,6 +121,7 @@ const THEMES = [
     },
     {
         name: "BIOLUMINESCENT WOODS",
+        tags: ['dark', 'nature', 'forest', 'magic'],
         sky: ['#010a1c', '#10032e'], // 深邃的午夜蓝
         sun: '#a9d5ff', sunSize: 40, sunY: 0.15, // 柔和的月光
         mountFar: '#0b122e', mountNear: '#111942',
@@ -125,6 +134,7 @@ const THEMES = [
     },
     {
         name: "CITY IN THE CLOUDS",
+        tags: ['bright', 'sky', 'city', 'heavenly'],
         sky: ['#a1c4fd', '#c2e9fb'], // 明亮的天蓝色
         sun: '#ffd700', sunSize: 100, sunY: 0.3, // 灿烂的金色太阳
         mountFar: '#e0f2f1', mountNear: '#ffffff', // 远处的云堤
@@ -137,6 +147,7 @@ const THEMES = [
     },
     {
         name: "GIANT TREE FOREST",
+        tags: ['nature', 'forest', 'calm', 'giant'],
         sky: ['#1a3a3a', '#005a5a'], // 深邃的森林绿
         sun: '#f0fff0', sunSize: 60, sunY: 0.1, // 透过枝叶的柔光
         mountFar: '#002a2a', mountNear: '#0f3a3a',
@@ -149,6 +160,7 @@ const THEMES = [
     },
     {
         name: "CRYSTAL CAVES",
+        tags: ['dark', 'cave', 'crystals', 'magic'],
         sky: ['#1e1a3d', '#3e2a6d'], // 洞窟的深紫色
         sun: '#ffffff', sunSize: 10, sunY: 0.5, // 远处的光源
         mountFar: '#2e2a5d', mountNear: '#4e3a8d',
@@ -161,6 +173,7 @@ const THEMES = [
     },
     {
         name: "AURORA GLACIER",
+        tags: ['cold', 'ice', 'sky', 'winter'],
         sky: ['#0c1440', '#00a896'], // 极光的混合色
         sun: '#ffffff', sunSize: 40, sunY: 0.2, // 明亮的月亮
         mountFar: '#add8e6', mountNear: '#ffffff',
@@ -173,6 +186,7 @@ const THEMES = [
     },
     {
         name: "CORAL KINGDOM",
+        tags: ['ocean', 'nature', 'calm', 'colorful'],
         sky: ['#003973', '#005f9e'], // 深海蓝
         sun: '#ffffff', sunSize: 100, sunY: 0.1, // 来自水面的光线
         mountFar: '#004983', mountNear: '#006fae',
@@ -185,6 +199,7 @@ const THEMES = [
     },
     {
         name: "HANGING GARDENS",
+        tags: ['bright', 'ruins', 'nature', 'heavenly'],
         sky: ['#fdebd0', '#f5b041'], // 温暖的晨光
         sun: '#fff5e1', sunSize: 120, sunY: 0.2,
         mountFar: '#d5dbdb', mountNear: '#abb2b9',
@@ -197,6 +212,7 @@ const THEMES = [
     },
     {
         name: "DESERT COLOSSUS",
+        tags: ['dry', 'ruins', 'giant', 'desolate'],
         sky: ['#f5cba7', '#d35400'], // 沙漠的日落
         sun: '#ffffff', sunSize: 90, sunY: 0.4,
         mountFar: '#e59866', mountNear: '#af601a',
@@ -209,6 +225,7 @@ const THEMES = [
     },
     {
         name: "STEAMPUNK METROPOLIS",
+        tags: ['dark', 'city', 'industrial', 'steampunk'],
         sky: ['#4a4a4a', '#2c3e50'], // 工业烟雾
         sun: '#ffc107', sunSize: 70, sunY: 0.3, // 齿轮太阳
         mountFar: '#566573', mountNear: '#2c3e50',
@@ -221,6 +238,7 @@ const THEMES = [
     },
     {
         name: "SILENT LIBRARY",
+        tags: ['dark', 'ruins', 'magic', 'indoor'],
         sky: ['#2c2c54', '#1a1a3a'], // 深邃的室内感
         sun: '#fffacd', sunSize: 50, sunY: 0.1, // 魔法灯光
         mountFar: '#3c3c64', mountNear: '#4c4c7a',
@@ -233,6 +251,7 @@ const THEMES = [
     },
     {
         name: "WORLD OF REFLECTIONS",
+        tags: ['bright', 'abstract', 'calm', 'surreal'],
         sky: ['#eaf2f8', '#aed6f1'], // 明亮、干净的颜色
         sun: '#ffffff', sunSize: 200, sunY: 0.5,
         mountFar: '#d6eaf8', mountNear: '#aed6f1',
@@ -245,6 +264,7 @@ const THEMES = [
     },
     {
         name: "PLAYGROUND OF GIANTS",
+        tags: ['bright', 'giant', 'surreal', 'playful'],
         sky: ['#fcf3cf', '#f7dc6f'], // 孩童般的暖黄色
         sun: '#fdfefe', sunSize: 150, sunY: 0.3,
         mountFar: '#fad7a0', mountNear: '#f5b041',
@@ -257,6 +277,7 @@ const THEMES = [
     },
     {
         name: "CORRIDOR OF MEMORIES",
+        tags: ['monochrome', 'abstract', 'surreal', 'memory'],
         sky: ['#d5d8dc', '#566573'], // 褪色的黑白
         sun: '#ffffff', sunSize: 80, sunY: 0.2, // 模糊的光源
         mountFar: '#abb2b9', mountNear: '#808b96',
@@ -269,6 +290,7 @@ const THEMES = [
     },
     {
         name: "STRING THEORY SEA",
+        tags: ['dark', 'void', 'abstract', 'sci-fi'],
         sky: ['#000000', '#1c0a1c'], // 纯黑的虚空
         sun: '#ffffff', sunSize: 5, sunY: 0.5, // 奇点
         mountFar: '#1c0a1c', mountNear: '#2c1a2c',
@@ -281,6 +303,7 @@ const THEMES = [
     },
     {
         name: "SHATTERED REALITY",
+        tags: ['abstract', 'glitch', 'surreal', 'hostile'],
         sky: ['#ffffff', '#ffffff'], // 纯白，无渐变
         sun: '#000000', sunSize: 50, sunY: 0.5, // 黑洞太阳
         mountFar: '#cccccc', mountNear: '#999999',
@@ -350,6 +373,133 @@ const state = {
     // --- 新增：远景实体状态 ---
     distantEntities: []
 };
+
+// --- 新增：创世引擎 - Director模块 ---
+const Director = {
+    // 现有的20个主题现在作为“灵感”或“基础模板”
+    baseThemes: [...THEMES],
+
+    // 用于程序化生成名称的词库
+    nameParts: {
+        adjectives: ["Crimson", "Golden", "Azure", "Verdant", "Starlight", "Whispering", "Forgotten", "Sunken", "Crystal", "Obsidian"],
+        nouns: ["Expanse", "Chasm", "Citadel", "Sanctuary", "Wastes", "Garden", "Void", "Kingdom", "Glacier", "Sea"]
+    },
+
+    // 初始化 Director，准备好生成逻辑
+    init: function() {
+        // 可以在这里预处理 baseThemes，提取色彩数据等
+        console.log("Director initialized. Ready to generate infinite worlds.");
+    },
+
+    // 1.3 名称生成器
+    generateName: function() {
+        const adj = this.nameParts.adjectives[Math.floor(Math.random() * this.nameParts.adjectives.length)];
+        const noun = this.nameParts.nouns[Math.floor(Math.random() * this.nameParts.nouns.length)];
+        return `${adj.toUpperCase()} ${noun.toUpperCase()}`;
+    },
+
+    // HSL转HEX的辅助函数
+    _hslToHex: function(h, s, l) {
+        l /= 100;
+        const a = s * Math.min(l, 1 - l) / 100;
+        const f = n => {
+            const k = (n + h / 30) % 12;
+            const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+            return Math.round(255 * color).toString(16).padStart(2, '0');
+        };
+        return `#${f(0)}${f(8)}${f(4)}`;
+    },
+
+    // 1.2 程序化调色板生成器 (基于分裂互补色)
+    generatePalette: function() {
+        const baseHue = Math.random() * 360; // 随机一个基础色相
+        const saturation = random(40, 70); // 饱和度保持在中等范围
+        const lightness = random(30, 60); // 亮度
+
+        // 天空: 基础色相的两个变体
+        const sky1 = this._hslToHex(baseHue, saturation, lightness + 10);
+        const sky2 = this._hslToHex((baseHue + 20) % 360, saturation, lightness - 10);
+
+        // 地面/山脉: 分裂互补色
+        const complementHue1 = (baseHue + 150) % 360;
+        const complementHue2 = (baseHue + 210) % 360;
+
+        const ground = this._hslToHex(complementHue1, saturation - 10, lightness - 15);
+        const mountNear = this._hslToHex(complementHue1, saturation - 20, lightness - 5);
+        const mountFar = this._hslToHex(complementHue2, saturation - 25, lightness + 5);
+
+        // 太阳/高光/雾气: 基础色相的明亮变体或互补色的柔和变体
+        const accent = this._hslToHex(baseHue, saturation + 20, lightness + 30);
+        const sun = this._hslToHex((baseHue + 40) % 360, saturation + 10, 90);
+        const fog = this._hslToHex(complementHue2, saturation - 30, lightness + 15);
+
+        return { sky: [sky1, sky2], ground, mountNear, mountFar, accent, sun, fog };
+    },
+
+    // 1.3 参数生成器
+    generateParams: function() {
+        return {
+            sunSize: random(20, 150),
+            sunY: random(0.15, 0.6),
+            fogAlpha: random(0.1, 0.35),
+            // 从现有主题中随机选择地形、道具和天气作为“模板”
+            propType: this.baseThemes[Math.floor(Math.random() * this.baseThemes.length)].propType,
+            terrainStyle: this.baseThemes[Math.floor(Math.random() * this.baseThemes.length)].terrainStyle,
+            weather: this.baseThemes[Math.floor(Math.random() * this.baseThemes.length)].weather,
+        };
+    },
+
+    // 1.4 整合生成逻辑
+    generateNextTheme: function() {
+        const name = this.generateName();
+        const palette = this.generatePalette();
+        const params = this.generateParams();
+
+        return {
+            name: name,
+            sky: palette.sky,
+            sun: palette.sun,
+            sunSize: params.sunSize,
+            sunY: params.sunY,
+            mountFar: palette.mountFar,
+            mountNear: palette.mountNear,
+            ground: palette.ground,
+            accent: palette.accent,
+            fogColor: palette.fog,
+            fogAlpha: params.fogAlpha,
+            propType: params.propType,
+            terrainStyle: params.terrainStyle,
+            weather: params.weather,
+            tags: [] // 初始为空，待动态填充
+        };
+
+        // 2.3 动态分配标签
+        // 基于颜色
+        const groundColor = hexToRgb(newTheme.ground);
+        const avgColor = (groundColor[0] + groundColor[1] + groundColor[2]) / 3;
+        if (avgColor < 80) newTheme.tags.push('dark');
+        if (avgColor > 180) newTheme.tags.push('bright');
+
+        // 基于地形和天气
+        if (newTheme.terrainStyle === 'ocean') newTheme.tags.push('ocean');
+        if (newTheme.terrainStyle === 'mountain') newTheme.tags.push('mountain');
+        if (newTheme.terrainStyle === 'jagged') newTheme.tags.push('jagged');
+        if (newTheme.terrainStyle === 'cityscape') newTheme.tags.push('city');
+        if (newTheme.weather === 'snow') newTheme.tags.push('cold');
+        if (newTheme.weather === 'rain') newTheme.tags.push('rainy');
+        if (newTheme.weather === 'embers') newTheme.tags.push('fire');
+
+        // 随机赋予一些通用标签
+        if (Math.random() < 0.2) newTheme.tags.push('ruins');
+        if (Math.random() < 0.1) newTheme.tags.push('magic');
+        if (Math.random() < 0.1) newTheme.tags.push('void');
+
+
+        return newTheme;
+    }
+};
+Director.init();
+
 
 // --- 辅助函数 ---
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -564,8 +714,15 @@ function update(deltaTime, timestamp) {
     // 当一个主题的完整持续时间结束后
     if (state.transitionTimer > THEME_DURATION_MS) {
         state.transitionTimer = 0;
+
+        // 旧逻辑: state.currentThemeIdx = state.nextThemeIdx;
+        // 旧逻辑: state.nextThemeIdx = (state.currentThemeIdx + 1) % THEMES.length;
+        // 新逻辑：用 Director 生成的新场景替换当前的“下一个”场景
+        THEMES[state.nextThemeIdx] = Director.generateNextTheme();
+
         state.currentThemeIdx = state.nextThemeIdx;
-        state.nextThemeIdx = (state.currentThemeIdx + 1) % THEMES.length;
+        // 为了确保我们总是在两个有效的索引之间切换，我们使用0和1作为“缓冲区”
+        state.nextThemeIdx = (state.currentThemeIdx === 0) ? 1 : 0;
 
         // 更新文本并淡入
         uiName.innerText = THEMES[state.currentThemeIdx].name;
@@ -589,9 +746,8 @@ function update(deltaTime, timestamp) {
 function handleCinematicEvents() {
     const T1 = THEMES[state.currentThemeIdx];
 
-    // --- 过渡事件：流星雨 ---
-    // 当从星光虚空过渡时，在过渡中途触发
-    if (T1.name === "STARLIGHT VOID" && state.transitionProgress > 0.4 && state.transitionProgress < 0.6) {
+    // --- 过渡事件：流星雨 (基于标签) ---
+    if (T1.tags.includes('void') && state.transitionProgress > 0.4 && state.transitionProgress < 0.6) {
         if (Math.random() < 0.2) { // 密度控制
             // 创建一颗流星
             state.weatherParticles.push({
@@ -1525,6 +1681,13 @@ function drawParticles(ctx, C, alphaScale) {
 
 // 初始化UI
 function initUI() {
+    // 新的初始化逻辑：用生成的场景替换掉最初的几个“模板”场景
+    // 这样，游戏从一开始就是完全随机的
+    THEMES[0] = Director.generateNextTheme();
+    THEMES[1] = Director.generateNextTheme();
+    state.currentThemeIdx = 0;
+    state.nextThemeIdx = 1;
+
     uiName.innerText = THEMES[state.currentThemeIdx].name;
     uiName.style.opacity = 0.9;
 }
@@ -1539,10 +1702,10 @@ function updateDistantEntities() {
     // 1. 清理生命周期结束的实体
     state.distantEntities = state.distantEntities.filter(e => e.life > 0 && e.x > -200);
 
-    // 2. 根据当前场景生成新实体
+    // 2. 根据当前场景生成新实体 (基于标签)
     const theme = THEMES[state.currentThemeIdx];
 
-    if (theme.name === "CITY IN THE CLOUDS" && Math.random() < 0.01 && state.distantEntities.length < 3) {
+    if (theme.tags.includes('heavenly') && theme.tags.includes('city') && Math.random() < 0.01 && state.distantEntities.length < 3) {
         state.distantEntities.push({
             type: 'fleet',
             x: w + 150,
@@ -1553,7 +1716,7 @@ function updateDistantEntities() {
         });
     }
 
-    if (theme.name === "VOLCANIC CHASM" && Math.random() < 0.02) {
+    if (theme.tags.includes('fire') && theme.tags.includes('hostile') && Math.random() < 0.02) {
         state.distantEntities.push({
             type: 'geyser',
             x: random(0, w),
@@ -1565,7 +1728,7 @@ function updateDistantEntities() {
         });
     }
 
-    if (theme.name === "CORAL KINGDOM" && Math.random() < 0.005 && !state.distantEntities.some(e => e.type === 'whale')) {
+    if (theme.tags.includes('ocean') && theme.tags.includes('colorful') && Math.random() < 0.005 && !state.distantEntities.some(e => e.type === 'whale')) {
         state.distantEntities.push({
             type: 'whale',
             x: w + 300,
@@ -1576,7 +1739,7 @@ function updateDistantEntities() {
         });
     }
 
-    if (theme.name === "CRYSTAL CAVES" && Math.random() < 0.015) {
+    if (theme.tags.includes('cave') && theme.tags.includes('magic') && Math.random() < 0.015) {
         state.distantEntities.push({
             type: 'resonance',
             x: random(0, w),
@@ -1587,7 +1750,7 @@ function updateDistantEntities() {
         });
     }
 
-    if (theme.name === "DESERT COLOSSUS" && Math.random() < 0.008 && !state.distantEntities.some(e => e.type === 'colossus_head')) {
+    if (theme.tags.includes('ruins') && theme.tags.includes('giant') && Math.random() < 0.008 && !state.distantEntities.some(e => e.type === 'colossus_head')) {
         state.distantEntities.push({
             type: 'colossus_head',
             x: w * 0.7,
@@ -1598,7 +1761,7 @@ function updateDistantEntities() {
         });
     }
 
-    if (theme.name === "STEAMPUNK METROPOLIS" && !state.distantEntities.some(e => e.type === 'clock_tower')) {
+    if (theme.tags.includes('steampunk') && !state.distantEntities.some(e => e.type === 'clock_tower')) {
         state.distantEntities.push({
             type: 'clock_tower',
             x: w * 0.8,
@@ -1608,7 +1771,7 @@ function updateDistantEntities() {
         });
     }
 
-    if (theme.name === "SHATTERED REALITY" && Math.random() < 0.1) {
+    if (theme.tags.includes('glitch') && Math.random() < 0.1) {
         state.distantEntities.push({
             type: 'glitch_effect',
             x: random(0, w),
@@ -1619,7 +1782,7 @@ function updateDistantEntities() {
         });
     }
 
-    if (theme.name === "STRING THEORY SEA" && Math.random() < 0.03) {
+    if (theme.tags.includes('sci-fi') && theme.tags.includes('void') && Math.random() < 0.03) {
         state.distantEntities.push({
             type: 'string_pluck',
             x: random(0, w),
