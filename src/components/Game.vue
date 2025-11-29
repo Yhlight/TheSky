@@ -1822,38 +1822,31 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
 function drawPlayer(ctx, C) {
     const p = state.player;
 
-    // 1. 拖尾 (水平光带效果)
+    // 1. 拖尾 (基于历史速度的分段渲染)
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
 
     if (p.trail.length > 2) {
-        ctx.beginPath();
-        // Start the trail from the player's current y-position
-        ctx.moveTo(p.trail[0].x, p.y);
-
         for (let i = 1; i < p.trail.length - 2; i++) {
             const point = p.trail[i];
             const nextPoint = p.trail[i + 1];
 
             const xc = (point.x + nextPoint.x) / 2;
-            // Use the player's current y for all control points to keep it horizontal
-            const yc = p.y;
+            const yc = p.y; // Keep the trail horizontal
 
+            ctx.beginPath();
+            ctx.moveTo(point.x, p.y);
             ctx.quadraticCurveTo(point.x, p.y, xc, yc);
+
+            // Width is based on the speed when the trail point was created
+            const lineWidth = Math.max(1, 4 + point.speed * 0.6);
+            // Alpha fades out towards the tail
+            const alpha = (i / p.trail.length) * 0.5;
+
+            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.lineWidth = lineWidth;
+            ctx.stroke();
         }
-
-        // Dynamic width and alpha
-        const alpha = 0.5;
-        const baseWidth = Math.max(1, 4 + state.player.velocity.x * 0.6);
-
-        const grad = ctx.createLinearGradient(p.x, p.y - 50, p.x, p.y + 50);
-        grad.addColorStop(0, `rgba(255, 255, 255, 0)`);
-        grad.addColorStop(0.5, `rgba(255, 255, 255, ${alpha})`);
-        grad.addColorStop(1, `rgba(255, 255, 255, 0)`);
-
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = baseWidth;
-        ctx.stroke();
     }
     ctx.restore();
 
