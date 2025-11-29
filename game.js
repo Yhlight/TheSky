@@ -1281,7 +1281,7 @@ function draw(timestamp) {
     drawParticles(ctx, C, 0.5); // 远景粒子更透明，产生速度线效果
 
     // --- 5. 地面和前景 ---
-    drawGroundAndProps(ctx, C, progress);
+    drawGroundAndProps(ctx, C, progress, timestamp);
 
     // --- 6. 玩家 (光之丝带) ---
     drawPlayer(ctx, C);
@@ -1774,7 +1774,7 @@ const PROP_DRAWERS = {
 };
 
 // 绘制地面和装饰物
-function drawGroundAndProps(ctx, C, progress) {
+function drawGroundAndProps(ctx, C, progress, timestamp) {
     // --- 从区块绘制地面 ---
     drawTerrainLayerFromChunks(ctx, C.ground, 2, progress); // 2是地面的图层索引
 
