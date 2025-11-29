@@ -243,10 +243,8 @@ function update(timestamp) {
         p.velocity.x = lerp(p.velocity.x, CFG.playerMinSpeed, 0.05);
     }
 
-    // *** 关键修复：加速时绝不后退 ***
-    if (state.isAccelerating) {
-        p.velocity.x = Math.max(0, p.velocity.x);
-    }
+    // *** 关键修复：绝不后退 ***
+    p.velocity.x = Math.max(0, p.velocity.x);
 
     // d) 根据速度更新位置
     // p.x 由下面的 lerp 平滑处理，以避免抖动
