@@ -2,7 +2,7 @@ const { test, expect } = require('@playwright/test');
 
 test('visually verify game smoothness and style', async ({ page }) => {
   // Navigate to the locally served game
-  await page.goto('http://localhost:8000');
+  await page.goto('http://localhost:8888');
 
   // Wait for the game canvas to be visible and stable
   await page.waitForSelector('#canvas', { state: 'visible' });
