@@ -868,11 +868,6 @@ function draw(timestamp) {
 
     // 2.2 过渡时的光晕脉冲效果
     let pulseFactor = 1.0;
-    if (state.transitionProgress > 0.45 && state.transitionProgress < 0.55) {
-        // 使用sin曲线在[0.45, 0.55]区间创建一个从0到1再回到0的平滑脉冲
-        const pulseProgress = (state.transitionProgress - 0.45) * 10; // 将区间映射到 [0, 1]
-        pulseFactor = 1.0 + Math.sin(pulseProgress * Math.PI) * 0.5; // 脉冲强度增加50%
-    }
 
     ctx.globalCompositeOperation = 'screen';
     const safeR0 = Math.max(1, (C.sunSize / 2) * pulseFactor);
@@ -1827,26 +1822,28 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
 function drawPlayer(ctx, C) {
     const p = state.player;
 
-    // 1. 拖尾 (光带效果)
+    // 1. 拖尾 (水平光带效果)
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
 
     if (p.trail.length > 2) {
         ctx.beginPath();
-        ctx.moveTo(p.trail[0].x, p.trail[0].y);
+        // Start the trail from the player's current y-position
+        ctx.moveTo(p.trail[0].x, p.y);
 
         for (let i = 1; i < p.trail.length - 2; i++) {
             const point = p.trail[i];
             const nextPoint = p.trail[i + 1];
 
             const xc = (point.x + nextPoint.x) / 2;
-            const yc = (point.y + nextPoint.y) / 2;
+            // Use the player's current y for all control points to keep it horizontal
+            const yc = p.y;
 
-            ctx.quadraticCurveTo(point.x, point.y, xc, yc);
+            ctx.quadraticCurveTo(point.x, p.y, xc, yc);
         }
 
-        // 动态线宽和透明度
-        const alpha = 0.5; // Base alpha
+        // Dynamic width and alpha
+        const alpha = 0.5;
         const baseWidth = Math.max(1, 4 + state.player.velocity.x * 0.6);
 
         const grad = ctx.createLinearGradient(p.x, p.y - 50, p.x, p.y + 50);
@@ -1865,25 +1862,32 @@ function drawPlayer(ctx, C) {
     ctx.translate(p.x, p.y);
 
     // 根据垂直速度旋转
-    const angle = Math.atan2(p.velocity.y, 20);
+    const angle = Math.atan2(p.velocity.y, 20); // 20 是一个魔数，用于控制旋转的灵敏度
     ctx.rotate(angle);
 
     // 强烈的辉光
-    ctx.shadowBlur = 40;
-    ctx.shadowColor = C.accent;
+    ctx.shadowBlur = 50;
+    ctx.shadowColor = 'white';
 
-    // 绘制一个更柔和的核心
-    ctx.fillStyle = C.accent;
+    // 绘制深色核心以增加对比度
+    ctx.fillStyle = 'rgba(0, 0, 50, 0.25)';
     ctx.beginPath();
-    ctx.arc(0, 0, 8, 0, Math.PI * 2);
+    ctx.moveTo(18, 0);
+    ctx.lineTo(-18, -12);
+    ctx.lineTo(-12, 0);
+    ctx.lineTo(-18, 12);
+    ctx.closePath();
     ctx.fill();
 
-    // 添加一个旋转的光环
-    ctx.strokeStyle = `rgba(255, 255, 255, 0.5)`;
-    ctx.lineWidth = 2;
+    // 绘制明亮的晶体形状
+    ctx.fillStyle = C.accent;
     ctx.beginPath();
-    ctx.arc(0, 0, 15, 0, Math.PI * 1.5);
-    ctx.stroke();
+    ctx.moveTo(15, 0); // 尖端
+    ctx.lineTo(-15, -10); // 左翼
+    ctx.lineTo(-10, 0); // 尾部中心
+    ctx.lineTo(-15, 10); // 右翼
+    ctx.closePath();
+    ctx.fill();
 
     ctx.restore();
 }
