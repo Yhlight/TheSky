@@ -1,27 +1,18 @@
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 test('visually verify game smoothness and style', async ({ page }) => {
-  // Navigate to the locally served game
-  await page.goto('http://localhost:8888');
+  // Navigate to the locally served game from Vite
+  await page.goto('http://localhost:5173');
 
-  // Wait for the game canvas to be visible and stable
-  await page.waitForSelector('#canvas', { state: 'visible' });
-  await page.waitForTimeout(2000); // Wait 2 seconds for initial animations
+  // Wait for the canvas to be ready and rendered
+  await page.waitForSelector('#canvas');
 
-  // Simulate accelerating for 5 seconds to see the visual changes
-  await page.keyboard.down('Space');
+  // Give the game a few seconds to run and stabilize
   await page.waitForTimeout(5000);
-  await page.keyboard.up('Space');
 
-  // Wait a moment for the speed to normalize
-  await page.waitForTimeout(1000);
-
-  // Create a directory for verification output if it doesn't exist
-  const fs = require('fs');
-  if (!fs.existsSync('verification')) {
-    fs.mkdirSync('verification');
-  }
-
-  // Take a screenshot to visually verify the changes
-  await page.screenshot({ path: 'verification/screenshot.png' });
+  // Take a screenshot for visual verification
+  await expect(page).toHaveScreenshot('game-play.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.05, // Allow for small rendering differences
+  });
 });

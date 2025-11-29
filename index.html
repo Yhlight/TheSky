@@ -4,25 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TheSky</title>
-    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="fx-layer"></div>
-    <div id="ui">
-        <h1 id="scene-name"></h1>
-        <div class="guide">HOLD [D] or [SPACE] TO ACCELERATE</div>
-    </div>
-    <audio id="bg-music" src="https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Monplaisir/And_Then_We_Will_Be_Okay/Monplaisir_-_01_-_And_Then_We_Will_Be_Okay.mp3" loop></audio>
-    <canvas id="canvas"></canvas>
-    <script>
-        (function() {
-            // Create a new script element
-            var script = document.createElement('script');
-            // Set its source to the game script, appending a timestamp to prevent caching
-            script.src = 'game.js?v=' + new Date().getTime();
-            // Append the script element to the body
-            document.body.appendChild(script);
-        })();
-    </script>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
 </body>
 </html>

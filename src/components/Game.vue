@@ -1,22 +1,37 @@
-/**
- * ASCENSION ENGINE 3.0: CINEMATIC FLOW
- * 核心升级点：Smoothstep过渡，速度动态控制，Lighter模式拖尾
- */
+<template>
+  <div>
+    <div id="fx-layer"></div>
+    <div id="ui">
+      <h1 ref="uiNameRef" :class="{ visible: isSceneNameVisible }">{{ sceneNameText }}</h1>
+      <div class="guide">HOLD [D] or [SPACE] TO ACCELERATE</div>
+    </div>
+    <audio ref="bgMusicRef" src="https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Monplaisir/And_Then_We_Will_Be_Okay/Monplaisir_-_01_-_And_Then_We_Will_Be_Okay.mp3" loop></audio>
+    <canvas ref="canvasRef"></canvas>
+  </div>
+</template>
 
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d', { alpha: false });
-const uiName = document.getElementById('scene-name');
-const bgMusic = document.getElementById('bg-music');
+<script setup>
+import { ref, reactive, onMounted, onUnmounted } from 'vue';
 
+// Vue template refs
+const canvasRef = ref(null);
+const uiNameRef = ref(null);
+const bgMusicRef = ref(null);
+
+// Reactive state for UI
+const sceneNameText = ref('');
+const isSceneNameVisible = ref(false);
+
+// Game variables
+let ctx = null;
 let isMusicStarted = false;
 let UILang = 'ch'; // 'en' or 'ch'
 let w, h;
-let animationFrameId = null; // 用于暂停/恢复
+let animationFrameId = null; // for pause/resume
 let lastTimestamp = 0;
 let isPaused = false;
 
-// --- 场景定义 (THEMES) ---
-// 颜色格式为 HEX
+// --- Scene Definitions (THEMES) ---
 const THEMES = [
     {
         name: { en: "SPRING AWAKENING", ch: "春日初醒" },
@@ -319,81 +334,102 @@ const THEMES = [
     }
 ];
 
-// --- 配置 ---
+// --- Config ---
 const CFG = {
-    playerMinSpeed: 4,    // 基础巡航速度 (风力可能使其低于此值)
-    playerMaxSpeed: 35,      // 大幅提高最大速度
-    playerThrust: 0.3,       // 更强的推力
-    dragCoefficient: 0.99,   // 略微增加阻力以控制高速
+    playerMinSpeed: 4,
+    playerMaxSpeed: 35,
+    playerThrust: 0.3,
+    dragCoefficient: 0.99,
     windForceScale: 0.1,
     hoverForce: 0.01,
     hoverDamping: 0.95,
     transitionFrames: 350,
     terrainBaseY: 0.9,
     playerInitialX: 0.2,
-
-    // --- 新增：地形区块配置 ---
-    CHUNK_WIDTH: 1000,       // 每个地形区块的宽度（像素）
-    CHUNK_RESOLUTION: 20,    // 每个区块的点数（越高越平滑）
-    TERRAIN_LAYERS: 3,       // 地形层数 (修正)
-    PRE_GENERATION_RANGE: 2, // 提前生成多少个区块
+    CHUNK_WIDTH: 1000,
+    CHUNK_RESOLUTION: 20,
+    TERRAIN_LAYERS: 3,
+    PRE_GENERATION_RANGE: 2,
 };
 
-// --- 状态管理 ---
-const state = {
-    t: 0, // 全局时间
-    worldScrollX: 0, // 累积的世界滚动距离
-    isAccelerating: false, // 是否正在加速
-
+// --- State Management ---
+const state = reactive({
+    t: 0,
+    worldScrollX: 0,
+    isAccelerating: false,
     currentTheme: null,
     nextTheme: null,
     transitionTimer: 0,
-    transitionProgress: 0, // 0-1 的过渡进度
-    isFadingOut: false, // UI淡出状态
-
+    transitionProgress: 0,
+    isFadingOut: false,
     player: {
         x: 0, y: 0,
         velocity: { x: CFG.playerMinSpeed, y: 0 },
         acceleration: { x: 0, y: 0 },
         trail: []
     },
-
     props: [],
     particles: [],
-
-    // --- 新增：地形状态 ---
     terrain: {
-        chunks: new Map(),       // 用于存储地形区块数据 { chunkId -> chunkData }
-        lastGeneratedChunkId: -1 // 记录最后一个已生成的区块ID
+        chunks: new Map(),
+        lastGeneratedChunkId: -1
     },
-
-    // --- 新增：天气状态 ---
     weatherParticles: [],
-
-    // --- 新增：NPC状态 ---
     npcs: [],
-
-    // --- 新增：远景实体状态 ---
     distantEntities: [],
-
-    // --- 新增：天气事件状态 ---
     lightning: {
         timer: 200,
         alpha: 0
     },
-
-    // --- 新增：天幕效果状态 ---
     aurora: {
         bands: []
     }
+});
+
+// --- Helper Functions ---
+const lerp = (a, b, t) => a + (b - a) * t;
+const smoothstep = (t) => t * t * (3 - 2 * t);
+const hexToRgb = (hex) => {
+    let bigint = parseInt(hex.slice(1), 16);
+    return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
 };
+const lerpColor = (c1, c2, t) => {
+    const rgb1 = hexToRgb(c1);
+    const rgb2 = hexToRgb(c2);
+    const r = Math.round(lerp(rgb1[0], rgb2[0], t));
+    const g = Math.round(lerp(rgb1[1], rgb2[1], t));
+    const b = Math.round(lerp(rgb1[2], rgb2[2], t));
+    return `rgb(${r},${g},${b})`;
+};
+const random = (min, max) => Math.random() * (max - min) + min;
 
-// --- 新增：创世引擎 - Director模块 ---
+// --- Value Noise ---
+class ValueNoise {
+    constructor(seed = Math.random()) {
+        this.seed = seed;
+        this.values = new Array(256).fill(0).map(() => Math.random());
+    }
+    cosineInterpolate(a, b, t) {
+        const ft = t * Math.PI;
+        const f = (1 - Math.cos(ft)) * 0.5;
+        return a * (1 - f) + b * f;
+    }
+    get(x) {
+        const intX = Math.floor(x);
+        const fracX = x - intX;
+        const v1 = this.values[intX & 255];
+        const v2 = this.values[(intX + 1) & 255];
+        return this.cosineInterpolate(v1, v2, fracX);
+    }
+}
+const terrainNoise = new ValueNoise();
+const windNoiseX = new ValueNoise(Math.random());
+const windNoiseY = new ValueNoise(Math.random());
+const auroraNoise = new ValueNoise(Math.random());
+
+// --- Director Module ---
 const Director = {
-    // 现有的20个主题现在作为“灵感”或“基础模板”
     baseThemes: [...THEMES],
-
-    // 用于程序化生成名称的词库 (按色系分类)
     nameParts: {
         adjectives: {
             reds: [{ en: "Crimson", ch: "猩红" }, { en: "Ruby", ch: "宝石" }, { en: "Scarlet", ch: "绯红" }],
@@ -414,23 +450,16 @@ const Director = {
             { en: "Glacier", ch: "冰川" }, { en: "Sea", ch: "之海" }
         ]
     },
-
-    // 初始化 Director
     init: function() {
-        console.log("Director initialized. Ready to generate infinite worlds.");
+        console.log("Director initialized.");
     },
-
-    // 2.2 色彩感知名称生成器
     _getHue: function(hex) {
         const rgb = hexToRgb(hex);
-        const r = rgb[0] / 255;
-        const g = rgb[1] / 255;
-        const b = rgb[2] / 255;
+        const r = rgb[0] / 255, g = rgb[1] / 255, b = rgb[2] / 255;
         const max = Math.max(r, g, b), min = Math.min(r, g, b);
         let h;
-        if (max === min) {
-            h = 0; // achromatic
-        } else {
+        if (max === min) { h = 0; }
+        else {
             const d = max - min;
             switch (max) {
                 case r: h = (g - b) / d + (g < b ? 6 : 0); break;
@@ -444,7 +473,6 @@ const Director = {
     generateName: function(palette) {
         const hue = this._getHue(palette.ground);
         let adjPool;
-
         if (hue >= 330 || hue < 20) adjPool = this.nameParts.adjectives.reds;
         else if (hue < 45) adjPool = this.nameParts.adjectives.oranges;
         else if (hue < 65) adjPool = this.nameParts.adjectives.yellows;
@@ -454,21 +482,13 @@ const Director = {
         else if (hue < 290) adjPool = this.nameParts.adjectives.purples;
         else if (hue < 330) adjPool = this.nameParts.adjectives.pinks;
         else adjPool = this.nameParts.adjectives.neutrals;
-
-        // 30% 概率使用中性词增加多样性
         if (Math.random() < 0.3) {
             adjPool = adjPool.concat(this.nameParts.adjectives.neutrals);
         }
-
         const adj = adjPool[Math.floor(Math.random() * adjPool.length)];
         const noun = this.nameParts.nouns[Math.floor(Math.random() * this.nameParts.nouns.length)];
-        return {
-            en: `${adj.en.toUpperCase()} ${noun.en.toUpperCase()}`,
-            ch: `${adj.ch}${noun.ch}`
-        };
+        return { en: `${adj.en.toUpperCase()} ${noun.en.toUpperCase()}`, ch: `${adj.ch}${noun.ch}` };
     },
-
-    // HSL转HEX的辅助函数
     _hslToHex: function(h, s, l) {
         l /= 100;
         const a = s * Math.min(l, 1 - l) / 100;
@@ -479,9 +499,8 @@ const Director = {
         };
         return `#${f(0)}${f(8)}${f(4)}`;
     },
-
-    // 1.2 程序化调色板生成器 (多模型)
     generatePalette: function() {
+        // ... (rest of the function is the same, no need to include here for brevity)
         const baseHue = Math.random() * 360;
         const saturation = random(40, 70);
         const lightness = random(30, 60);
@@ -543,52 +562,33 @@ const Director = {
 
         return { sky: [sky1, sky2], ground, mountNear, mountFar, accent, sun, fog };
     },
-
-    // 1.3 参数生成器
     generateParams: function() {
         return {
             sunSize: random(20, 150),
             sunY: random(0.15, 0.6),
             fogAlpha: random(0.1, 0.35),
-            // 从现有主题中随机选择地形、道具和天气作为“模板”
             propType: this.baseThemes[Math.floor(Math.random() * this.baseThemes.length)].propType,
             terrainStyle: this.baseThemes[Math.floor(Math.random() * this.baseThemes.length)].terrainStyle,
             weather: this.baseThemes[Math.floor(Math.random() * this.baseThemes.length)].weather,
         };
     },
-
-    // 1.4 整合生成逻辑 (已更新)
     generateNextTheme: function() {
         const palette = this.generatePalette();
-        const name = this.generateName(palette); // 传入调色板
+        const name = this.generateName(palette);
         const params = this.generateParams();
-
         const newTheme = {
             name: name,
             sky: palette.sky,
-            sun: palette.sun,
-            sunSize: params.sunSize,
-            sunY: params.sunY,
-            mountFar: palette.mountFar,
-            mountNear: palette.mountNear,
-            ground: palette.ground,
-            accent: palette.accent,
-            fogColor: palette.fog,
-            fogAlpha: params.fogAlpha,
-            propType: params.propType,
-            terrainStyle: params.terrainStyle,
-            weather: params.weather,
-            tags: [] // 初始为空，待动态填充
+            sun: palette.sun, sunSize: params.sunSize, sunY: params.sunY,
+            mountFar: palette.mountFar, mountNear: palette.mountNear, ground: palette.ground,
+            accent: palette.accent, fogColor: palette.fog, fogAlpha: params.fogAlpha,
+            propType: params.propType, terrainStyle: params.terrainStyle, weather: params.weather,
+            tags: []
         };
-
-        // 2.3 动态分配标签
-        // 基于颜色
         const groundColor = hexToRgb(newTheme.ground);
         const avgColor = (groundColor[0] + groundColor[1] + groundColor[2]) / 3;
         if (avgColor < 80) newTheme.tags.push('dark');
         if (avgColor > 180) newTheme.tags.push('bright');
-
-        // 基于地形和天气
         if (newTheme.terrainStyle === 'ocean') newTheme.tags.push('ocean');
         if (newTheme.terrainStyle === 'mountain') newTheme.tags.push('mountain');
         if (newTheme.terrainStyle === 'jagged') newTheme.tags.push('jagged');
@@ -596,138 +596,74 @@ const Director = {
         if (newTheme.weather === 'snow') newTheme.tags.push('cold');
         if (newTheme.weather === 'rain') newTheme.tags.push('rainy');
         if (newTheme.weather === 'embers') newTheme.tags.push('fire');
-
-        // 随机赋予一些通用标签
         if (Math.random() < 0.2) newTheme.tags.push('ruins');
         if (Math.random() < 0.1) newTheme.tags.push('magic');
         if (Math.random() < 0.1) newTheme.tags.push('void');
         if (Math.random() < 0.15 && newTheme.tags.includes('rainy')) newTheme.tags.push('stormy');
         if (newTheme.tags.includes('cold') && Math.random() < 0.3) newTheme.tags.push('aurora');
-
         return newTheme;
     }
 };
-Director.init();
 
+// --- All other functions (update, draw, etc.) go here, unchanged for now ---
+// ...
+// --- Main Game Logic Functions ---
 
-// --- 辅助函数 ---
-const lerp = (a, b, t) => a + (b - a) * t;
+// Most functions like update, draw, generateWorldEntities, etc. are kept as is for now.
+// They will be called from within the Vue lifecycle hooks.
+// Minor adjustments will be needed to access reactive state (e.g., state.player instead of just player).
 
-// 非线性缓动函数 (Smoothstep: 3t^2 - 2t^3)
-const smoothstep = (t) => t * t * (3 - 2 * t);
-
-// HEX颜色转RGB数组
-const hexToRgb = (hex) => {
-    let bigint = parseInt(hex.slice(1), 16);
-    return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
-}
-// 颜色插值，返回RGB字符串
-const lerpColor = (c1, c2, t) => {
-    const rgb1 = hexToRgb(c1);
-    const rgb2 = hexToRgb(c2);
-    const r = Math.round(lerp(rgb1[0], rgb2[0], t));
-    const g = Math.round(lerp(rgb1[1], rgb2[1], t));
-    const b = Math.round(lerp(rgb1[2], rgb2[2], t));
-    return `rgb(${r},${g},${b})`;
-}
-const random = (min, max) => Math.random() * (max - min) + min;
-
-// --- Value Noise (用于更自然的地形) ---
-class ValueNoise {
-    constructor(seed = Math.random()) {
-        this.seed = seed;
-        this.values = new Array(256).fill(0).map(() => Math.random());
-    }
-
-    // 平滑插值 (Cosine)
-    cosineInterpolate(a, b, t) {
-        const ft = t * Math.PI;
-        const f = (1 - Math.cos(ft)) * 0.5;
-        return a * (1 - f) + b * f;
-    }
-
-    // 获取噪声值
-    get(x) {
-        const intX = Math.floor(x);
-        const fracX = x - intX;
-
-        const v1 = this.values[intX & 255];
-        const v2 = this.values[(intX + 1) & 255];
-
-        return this.cosineInterpolate(v1, v2, fracX);
-    }
-}
-const terrainNoise = new ValueNoise();
-const windNoiseX = new ValueNoise(Math.random());
-const windNoiseY = new ValueNoise(Math.random());
-
-
-// --- 初始化 ---
-function resize() {
-    w = canvas.width = window.innerWidth;
-    h = canvas.height = window.innerHeight;
-    state.player.x = w * CFG.playerInitialX;
-    state.player.y = h * 0.5;
-}
-window.addEventListener('resize', resize);
-resize();
+// All the functions from the original game.js go here...
+// e.g. function update(deltaTime, timestamp) { ... }
+//      function draw(timestamp) { ... }
+//      ... etc ...
+/**
+ * ASCENSION ENGINE 3.0: CINEMATIC FLOW
+ * 核心升级点：Smoothstep过渡，速度动态控制，Lighter模式拖尾
+ */
 
 // --- 核心交互与循环 ---
 
 function startMusic() {
-    if (!isMusicStarted && bgMusic.paused) {
-        bgMusic.play().catch(e => console.error("Audio play failed:", e));
+    if (!isMusicStarted && bgMusicRef.value && bgMusicRef.value.paused) {
+        bgMusicRef.value.play().catch(e => console.error("Audio play failed:", e));
         isMusicStarted = true;
     }
 }
 
-window.addEventListener('keydown', (e) => {
+// Event handlers will be attached in onMounted
+const handleKeyDown = (e) => {
     if (e.code === 'Space' || e.code === 'KeyD') {
         state.isAccelerating = true;
         startMusic();
     }
-});
-window.addEventListener('keyup', (e) => {
+};
+
+const handleKeyUp = (e) => {
     if (e.code === 'Space' || e.code === 'KeyD') state.isAccelerating = false;
-});
-window.addEventListener('mousedown', () => {
+};
+
+const handleMouseDown = () => {
     state.isAccelerating = true;
     startMusic();
-});
-window.addEventListener('mouseup', () => state.isAccelerating = false);
-window.addEventListener('touchstart', (e) => {
+};
+
+const handleMouseUp = () => {
+    state.isAccelerating = false;
+};
+
+const handleTouchStart = (e) => {
     e.preventDefault();
     state.isAccelerating = true;
     startMusic();
-}, { passive: false });
-window.addEventListener('touchend', (e) => { e.preventDefault(); state.isAccelerating = false; });
+};
 
+const handleTouchEnd = (e) => {
+    e.preventDefault();
+    state.isAccelerating = false;
+};
 
-// --- 游戏循环与暂停/恢复 ---
-function gameLoop(timestamp) {
-    if (isPaused) {
-        lastTimestamp = timestamp; // 存储暂停时的时刻
-        return;
-    }
-
-    // --- 新增: 基于DeltaTime的平滑更新 ---
-    // 计算增量时间 (delta time)
-    let deltaTime = timestamp - lastTimestamp;
-    lastTimestamp = timestamp;
-
-    // 防止因浏览器标签页切换等原因导致的deltaTime过大，避免画面跳跃
-    if (deltaTime > 100) {
-        deltaTime = 16.667; // 使用一个接近60FPS的值作为安全回退
-    }
-
-
-    update(deltaTime, timestamp); // 传递deltaTime和timestamp
-    draw(timestamp);   // draw函数仍然可以使用原始时间戳用于一些与物理无关的动画
-
-    animationFrameId = requestAnimationFrame(gameLoop);
-}
-
-document.addEventListener('visibilitychange', () => {
+const handleVisibilityChange = () => {
     if (document.hidden) {
         isPaused = true;
         if (animationFrameId) {
@@ -736,15 +672,45 @@ document.addEventListener('visibilitychange', () => {
         }
     } else {
         isPaused = false;
-        // 立即开始新的循环，而不是等待下一帧
         if (!animationFrameId) {
-            lastTimestamp = performance.now(); // 重置时间戳以避免大的跳跃
+            lastTimestamp = performance.now();
             animationFrameId = requestAnimationFrame(gameLoop);
         }
     }
-});
+};
 
 
+// --- 游戏循环与暂停/恢复 ---
+function gameLoop(timestamp) {
+    if (isPaused) {
+        lastTimestamp = timestamp;
+        return;
+    }
+
+    let deltaTime = timestamp - lastTimestamp;
+    lastTimestamp = timestamp;
+
+    if (deltaTime > 100) {
+        deltaTime = 16.667;
+    }
+
+    update(deltaTime, timestamp);
+    draw(timestamp);
+
+    animationFrameId = requestAnimationFrame(gameLoop);
+}
+
+// All other functions are defined here...
+// --- 初始化 ---
+function resize() {
+    if (!canvasRef.value) return;
+    w = canvasRef.value.width = window.innerWidth;
+    h = canvasRef.value.height = window.innerHeight;
+    state.player.x = w * CFG.playerInitialX;
+    state.player.y = h * 0.5;
+}
+
+// ... (All other functions from game.js would be defined here, unchanged)
 function update(deltaTime, timestamp) {
     const dt = deltaTime / (1000 / 60); // 时间缩放因子，目标为60FPS
     state.t++; // 仍然保留 t 用于一些基于帧的简单动画
@@ -824,7 +790,7 @@ function update(deltaTime, timestamp) {
 
     // 检查是否应该开始UI淡出
     if (state.transitionTimer >= TRANSITION_START_TIME && !state.isFadingOut) {
-        uiName.classList.remove('visible');
+        isSceneNameVisible.value = false;
         state.isFadingOut = true;
     }
 
@@ -846,8 +812,8 @@ function update(deltaTime, timestamp) {
         state.nextTheme = Director.generateNextTheme();
 
         // 更新文本并淡入
-        uiName.innerText = state.currentTheme.name[UILang];
-        uiName.classList.add('visible');
+        sceneNameText.value = state.currentTheme.name[UILang];
+        isSceneNameVisible.value = true;
         state.isFadingOut = false; // 重置淡出状态
         state.transitionProgress = 0; // 重置进度
     }
@@ -864,7 +830,115 @@ function update(deltaTime, timestamp) {
     updateAurora(timestamp);
 }
 
-// --- 新增：场景演出系统 ---
+function draw(timestamp) {
+    const progress = state.transitionProgress;
+
+    const T1 = state.currentTheme;
+    const T2 = state.nextTheme;
+
+    // 混合颜色配置
+    const C = {
+        skyTop: lerpColor(T1.sky[0], T2.sky[0], progress),
+        skyBot: lerpColor(T1.sky[1], T2.sky[1], progress),
+        sun: lerpColor(T1.sun, T2.sun, progress),
+        mountFar: lerpColor(T1.mountFar, T2.mountFar, progress),
+        mountNear: lerpColor(T1.mountNear, T2.mountNear, progress),
+        ground: lerpColor(T1.ground, T2.ground, progress),
+        accent: lerpColor(T1.accent, T2.accent, progress),
+        fogColor: lerpColor(T1.fogColor, T2.fogColor, progress),
+        sunSize: lerp(T1.sunSize, T2.sunSize, progress),
+        sunY: lerp(T1.sunY, T2.sunY, progress),
+        fogAlpha: lerp(T1.fogAlpha, T2.fogAlpha, progress)
+    };
+
+    // --- 1. 天空背景 ---
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, C.skyTop);
+    grad.addColorStop(1, C.skyBot);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // --- 新增: 1.5 天幕效果 (极光) ---
+    drawAurora(ctx, C);
+
+    // --- 2. 太阳/月亮 (Bloom Glow) ---
+    ctx.save();
+    const sunX = w * 0.8;
+    const sunY = h * C.sunY; // 使用插值后的 Y 坐标
+
+    // 2.2 过渡时的光晕脉冲效果
+    let pulseFactor = 1.0;
+    if (state.transitionProgress > 0.45 && state.transitionProgress < 0.55) {
+        // 使用sin曲线在[0.45, 0.55]区间创建一个从0到1再回到0的平滑脉冲
+        const pulseProgress = (state.transitionProgress - 0.45) * 10; // 将区间映射到 [0, 1]
+        pulseFactor = 1.0 + Math.sin(pulseProgress * Math.PI) * 0.5; // 脉冲强度增加50%
+    }
+
+    ctx.globalCompositeOperation = 'screen';
+    const safeR0 = Math.max(1, (C.sunSize / 2) * pulseFactor);
+    const safeR1 = Math.max(2, (C.sunSize * 5) * pulseFactor);
+    const sunGrad = ctx.createRadialGradient(sunX, sunY, safeR0, sunX, sunY, safeR1);
+    sunGrad.addColorStop(0, C.sun);
+    sunGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = sunGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // 本体
+    ctx.fillStyle = C.sun;
+
+    // >>> 关键修复点：确保 sunSize 至少为 1，避免负数错误
+    const safeSunSize = Math.max(1, C.sunSize);
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, safeSunSize, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+
+    // --- 3. 多层视差地形 (从区块绘制) ---
+    drawTerrainLayerFromChunks(ctx, C.mountFar, 0, progress);
+    drawTerrainLayerFromChunks(ctx, C.mountNear, 1, progress);
+
+    // --- 新增: 3.5 远景实体 ---
+    drawDistantEntities(ctx, C);
+
+    // --- NEW: 4. 体积雾/柔光层 ---
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.fillStyle = C.fogColor;
+    ctx.globalAlpha = C.fogAlpha; // 使用插值后的 Alpha
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over'; // 重置混合模式
+    ctx.globalAlpha = 1.0; // 重置透明度
+
+    // --- 5. 远景粒子 (速度线) ---
+    drawParticles(ctx, C, 0.5); // 远景粒子更透明，产生速度线效果
+
+    // --- 5. 地面和前景 ---
+    drawGroundAndProps(ctx, C, progress, timestamp);
+
+    // --- 6. 玩家 (光之丝带) ---
+    drawPlayer(ctx, C);
+
+    // --- 6. 绘制NPCs ---
+    drawNpcs(ctx, C);
+
+    // --- 7. 玩家 (光之丝带) ---
+    drawPlayer(ctx, C);
+
+    // --- 8. 前景粒子 ---
+    drawParticles(ctx, C, 1.0); // 前景粒子最清晰
+
+    // --- 新增：8.5 闪电效果 ---
+    if (state.lightning.alpha > 0) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${state.lightning.alpha})`;
+        ctx.fillRect(0, 0, w, h);
+    }
+
+    // --- 9. 天气效果 ---
+    drawWeather(ctx, C);
+
+    ctx.globalCompositeOperation = 'source-over';
+}
+
 function handleCinematicEvents() {
     const T1 = state.currentTheme;
 
@@ -885,7 +959,6 @@ function handleCinematicEvents() {
     }
 }
 
-// --- 新增：NPC系统 ---
 function updateNpcs() {
     // 更新NPC位置并清理
     state.npcs.forEach(npc => {
@@ -899,8 +972,6 @@ function updateNpcs() {
     });
 }
 
-
-// --- 新增：天气系统 ---
 function updateWeather() {
     // 1. 清理死去的粒子
     state.weatherParticles = state.weatherParticles.filter(p => p.life > 0);
@@ -1015,8 +1086,6 @@ function updateWeather() {
     }
 }
 
-
-// --- 新增：地形管理 ---
 function getTerrainLayerProperties(layerIndex) {
     // 定义每一层地形的视觉属性
     const properties = [
@@ -1070,7 +1139,6 @@ function generateNoiseValue(x, style, prop) {
     }
     return prop.base - noiseVal;
 }
-
 
 function generateTerrainChunk(chunkId) {
     if (state.terrain.chunks.has(chunkId)) return;
@@ -1128,7 +1196,6 @@ function updateTerrain() {
         }
     }
 }
-
 
 function generateWorldEntities() {
     // 根据速度调整生成密度
@@ -1198,116 +1265,6 @@ function generateWorldEntities() {
     }
 }
 
-function draw(timestamp) {
-    const progress = state.transitionProgress;
-
-    const T1 = state.currentTheme;
-    const T2 = state.nextTheme;
-
-    // 混合颜色配置
-    const C = {
-        skyTop: lerpColor(T1.sky[0], T2.sky[0], progress),
-        skyBot: lerpColor(T1.sky[1], T2.sky[1], progress),
-        sun: lerpColor(T1.sun, T2.sun, progress),
-        mountFar: lerpColor(T1.mountFar, T2.mountFar, progress),
-        mountNear: lerpColor(T1.mountNear, T2.mountNear, progress),
-        ground: lerpColor(T1.ground, T2.ground, progress),
-        accent: lerpColor(T1.accent, T2.accent, progress),
-        fogColor: lerpColor(T1.fogColor, T2.fogColor, progress),
-        sunSize: lerp(T1.sunSize, T2.sunSize, progress),
-        sunY: lerp(T1.sunY, T2.sunY, progress),
-        fogAlpha: lerp(T1.fogAlpha, T2.fogAlpha, progress)
-    };
-
-    // --- 1. 天空背景 ---
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, C.skyTop);
-    grad.addColorStop(1, C.skyBot);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
-
-    // --- 新增: 1.5 天幕效果 (极光) ---
-    drawAurora(ctx, C);
-
-    // --- 2. 太阳/月亮 (Bloom Glow) ---
-    ctx.save();
-    const sunX = w * 0.8;
-    const sunY = h * C.sunY; // 使用插值后的 Y 坐标
-
-    // 2.2 过渡时的光晕脉冲效果
-    let pulseFactor = 1.0;
-    if (state.transitionProgress > 0.45 && state.transitionProgress < 0.55) {
-        // 使用sin曲线在[0.45, 0.55]区间创建一个从0到1再回到0的平滑脉冲
-        const pulseProgress = (state.transitionProgress - 0.45) * 10; // 将区间映射到 [0, 1]
-        pulseFactor = 1.0 + Math.sin(pulseProgress * Math.PI) * 0.5; // 脉冲强度增加50%
-    }
-
-    ctx.globalCompositeOperation = 'screen';
-    const safeR0 = Math.max(1, (C.sunSize / 2) * pulseFactor);
-    const safeR1 = Math.max(2, (C.sunSize * 5) * pulseFactor);
-    const sunGrad = ctx.createRadialGradient(sunX, sunY, safeR0, sunX, sunY, safeR1);
-    sunGrad.addColorStop(0, C.sun);
-    sunGrad.addColorStop(1, 'transparent');
-    ctx.fillStyle = sunGrad;
-    ctx.fillRect(0, 0, w, h);
-
-    // 本体
-    ctx.fillStyle = C.sun;
-
-    // >>> 关键修复点：确保 sunSize 至少为 1，避免负数错误
-    const safeSunSize = Math.max(1, C.sunSize);
-    ctx.beginPath();
-    ctx.arc(sunX, sunY, safeSunSize, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-
-    // --- 3. 多层视差地形 (从区块绘制) ---
-    drawTerrainLayerFromChunks(ctx, C.mountFar, 0, progress);
-    drawTerrainLayerFromChunks(ctx, C.mountNear, 1, progress);
-
-    // --- 新增: 3.5 远景实体 ---
-    drawDistantEntities(ctx, C);
-
-    // --- NEW: 4. 体积雾/柔光层 ---
-    ctx.globalCompositeOperation = 'overlay';
-    ctx.fillStyle = C.fogColor;
-    ctx.globalAlpha = C.fogAlpha; // 使用插值后的 Alpha
-    ctx.fillRect(0, 0, w, h);
-    ctx.globalCompositeOperation = 'source-over'; // 重置混合模式
-    ctx.globalAlpha = 1.0; // 重置透明度
-
-    // --- 5. 远景粒子 (速度线) ---
-    drawParticles(ctx, C, 0.5); // 远景粒子更透明，产生速度线效果
-
-    // --- 5. 地面和前景 ---
-    drawGroundAndProps(ctx, C, progress, timestamp);
-
-    // --- 6. 玩家 (光之丝带) ---
-    drawPlayer(ctx, C);
-
-    // --- 6. 绘制NPCs ---
-    drawNpcs(ctx, C);
-
-    // --- 7. 玩家 (光之丝带) ---
-    drawPlayer(ctx, C);
-
-    // --- 8. 前景粒子 ---
-    drawParticles(ctx, C, 1.0); // 前景粒子最清晰
-
-    // --- 新增：8.5 闪电效果 ---
-    if (state.lightning.alpha > 0) {
-        ctx.fillStyle = `rgba(255, 255, 255, ${state.lightning.alpha})`;
-        ctx.fillRect(0, 0, w, h);
-    }
-
-    // --- 9. 天气效果 ---
-    drawWeather(ctx, C);
-
-    ctx.globalCompositeOperation = 'source-over';
-}
-
-// --- 新增：NPC绘制 ---
 function drawNpcs(ctx, C) {
     ctx.save();
     ctx.fillStyle = C.accent;
@@ -1326,9 +1283,6 @@ function drawNpcs(ctx, C) {
 
     ctx.restore();
 }
-
-// --- 新增：天幕效果 - 极光系统 ---
-const auroraNoise = new ValueNoise(Math.random());
 
 function updateAurora(timestamp) {
     const theme = state.currentTheme;
@@ -1394,8 +1348,6 @@ function drawAurora(ctx, C) {
     ctx.restore();
 }
 
-
-// --- 新增：天气系统绘制 ---
 function drawWeather(ctx, C) {
     ctx.save();
     state.weatherParticles.forEach(p => {
@@ -1494,8 +1446,6 @@ function drawWeather(ctx, C) {
     ctx.restore();
 }
 
-
-// --- 新增：从区块数据绘制地形层 ---
 function drawTerrainLayerFromChunks(ctx, color, layerIndex, progress) {
     ctx.fillStyle = color;
     ctx.beginPath();
@@ -1527,8 +1477,6 @@ function drawTerrainLayerFromChunks(ctx, color, layerIndex, progress) {
     ctx.fill();
 }
 
-
-// --- 道具绘制逻辑 (模块化) ---
 const PROP_DRAWERS = {
     'grass': (ctx, C, p) => {
         ctx.fillStyle = C.ground;
@@ -1773,7 +1721,6 @@ const PROP_DRAWERS = {
     }
 };
 
-// 绘制地面和装饰物
 function drawGroundAndProps(ctx, C, progress, timestamp) {
     // --- 从区块绘制地面 ---
     drawTerrainLayerFromChunks(ctx, C.ground, 2, progress); // 2是地面的图层索引
@@ -1865,7 +1812,6 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
     });
 }
 
-// 绘制玩家 (光之子)
 function drawPlayer(ctx, C) {
     const p = state.player;
 
@@ -1946,7 +1892,6 @@ function drawPlayer(ctx, C) {
     ctx.restore();
 }
 
-// 绘制粒子
 function drawParticles(ctx, C, alphaScale) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -1962,22 +1907,6 @@ function drawParticles(ctx, C, alphaScale) {
     ctx.restore();
 }
 
-// 初始化UI
-function initUI() {
-    // 新的初始化逻辑：直接生成当前和下一个主题对象
-    state.currentTheme = Director.generateNextTheme();
-    state.nextTheme = Director.generateNextTheme();
-
-    uiName.innerText = state.currentTheme.name[UILang];
-    uiName.classList.add('visible');
-}
-
-// 启动循环
-initUI();
-lastTimestamp = performance.now();
-animationFrameId = requestAnimationFrame(gameLoop);
-
-// --- 新增：远景实体系统实现 ---
 function updateDistantEntities() {
     // 1. 清理生命周期结束的实体
     state.distantEntities = state.distantEntities.filter(e => e.life > 0 && e.x > -200);
@@ -2233,3 +2162,53 @@ function drawDistantEntities(ctx, C) {
 
     ctx.restore();
 }
+
+onMounted(() => {
+    // Initialization
+    ctx = canvasRef.value.getContext('2d', { alpha: false });
+    Director.init();
+
+    // Set initial theme
+    state.currentTheme = Director.generateNextTheme();
+    state.nextTheme = Director.generateNextTheme();
+    sceneNameText.value = state.currentTheme.name[UILang];
+    isSceneNameVisible.value = true;
+
+    // Initial resize
+    resize();
+
+    // Add event listeners
+    window.addEventListener('resize', resize);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchstart', handleTouchStart, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Start game loop
+    lastTimestamp = performance.now();
+    animationFrameId = requestAnimationFrame(gameLoop);
+});
+
+onUnmounted(() => {
+    // Cleanup
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+    }
+    window.removeEventListener('resize', resize);
+    window.removeEventListener('keydown', handleKeyDown);
+    window.removeEventListener('keyup', handleKeyUp);
+    window.removeEventListener('mousedown', handleMouseDown);
+    window.removeEventListener('mouseup', handleMouseUp);
+    window.removeEventListener('touchstart', handleTouchStart);
+    window.removeEventListener('touchend', handleTouchEnd);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+});
+
+</script>
+
+<style scoped>
+/* Scoped styles can be added here if needed */
+</style>
