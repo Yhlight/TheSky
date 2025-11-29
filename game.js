@@ -59,9 +59,9 @@ const THEMES = [
 
 // --- 配置 ---
 const CFG = {
-    playerMinSpeed: 3,    // 基础巡航速度 (风力可能使其低于此值)
-    playerMaxSpeed: 20,   // 加速时最大速度
-    playerThrust: 0.25,    // 玩家加速时的推力
+    playerMinSpeed: 1.5,    // 基础巡航速度 (风力可能使其低于此值)
+    playerMaxSpeed: 8,   // 加速时最大速度
+    playerThrust: 0.1,    // 玩家加速时的推力
     dragCoefficient: 0.98, // 阻力系数 (越接近1，速度衰减越慢)
     windForceScale: 0.15,  // 風力強度（略微增强以实现速度波动）
     hoverForce: 0.01,   // 悬浮/回中力
@@ -216,8 +216,8 @@ function update(timestamp) {
     }
 
     // b) 风力 (持续变化)
-    const windX = (windNoiseX.get(timestamp / 250) - 0.5) * 2; // -1 to 1
-    const windY = (windNoiseY.get(timestamp / 200) - 0.5) * 2;  // -1 to 1
+    const windX = (windNoiseX.get(timestamp / 800) - 0.5) * 2; // -1 to 1
+    const windY = (windNoiseY.get(timestamp / 600) - 0.5) * 2;  // -1 to 1
     p.acceleration.x += windX * CFG.windForceScale;
     p.acceleration.y += windY * CFG.windForceScale;
 
@@ -247,17 +247,17 @@ function update(timestamp) {
     p.velocity.x = Math.max(0, p.velocity.x);
 
     // d) 根据速度更新位置
-    p.x += p.velocity.x;
+    // p.x 由下面的 lerp 平滑处理，以避免抖动
     p.y += p.velocity.y;
+
+    // 修正玩家的横向位置，使其感觉在“前进”而不是“移动”
+    const speedProgress = Math.max(0, p.velocity.x / CFG.playerMaxSpeed);
+    const targetX = w * CFG.playerInitialX + lerp(0, w * 0.15, speedProgress);
+    p.x = lerp(p.x, targetX, 0.02); // 平滑地移动到目标X (降低速率以消除后退感)
 
     // e) 边界检查
     if (p.y < h * 0.1) { p.y = h * 0.1; p.velocity.y *= -0.5; } // 碰撞反弹
     if (p.y > h * 0.9) { p.y = h * 0.9; p.velocity.y *= -0.5; }
-
-    // f) 屏幕回绕
-    if (p.x > w + 50) {
-        p.x = -50;
-    }
 
     // --- 3. 更新拖尾 ---
     state.player.trail.push({ x: state.player.x, y: state.player.y, speed: state.player.velocity.x });
@@ -309,12 +309,11 @@ function generateWorldEntities() {
 
         if (propTheme.propType !== 'none') {
             state.props.push({
-                x: random(0, w),
-                y: random(h * 0.6, h * 0.9),
+                x: w + 100,
+                y: h * CFG.terrainBaseY - random(50, 150),
                 type: propTheme.propType,
                 scale: random(0.8, 1.5),
-                rot: random(0, Math.PI * 2),
-                life: 1.0 // 1 = 100% life
+                rot: random(0, Math.PI * 2)
             });
         }
     }
@@ -336,8 +335,8 @@ function generateWorldEntities() {
     // 使用反向循环安全地在迭代时移除道具
     for (let i = state.props.length - 1; i >= 0; i--) {
         const p = state.props[i];
-        p.life -= 0.005; // 慢慢消失
-        if (p.life <= 0) {
+        p.x -= state.player.velocity.x;
+        if (p.x <= -200) {
             state.props.splice(i, 1);
         }
     }
@@ -441,8 +440,7 @@ function drawTerrain(ctx, color, speedScale, amp, base, t, currentSpeed, freq) {
     ctx.beginPath();
     ctx.moveTo(0, h);
     for (let x = 0; x <= w; x += 10) { // 增加采样密度
-        // 移除滚动偏移量
-        const scroll = 0; // t * currentSpeed * speedScale * 0.01;
+        let scroll = t * currentSpeed * speedScale * 0.01;
 
         // 叠加两层噪声以获得更丰富的细节
         let noiseVal = terrainNoise.get((x * freq) + scroll) * amp;
@@ -491,10 +489,9 @@ function drawGroundAndProps(ctx, C) {
     ctx.beginPath();
     ctx.moveTo(0, h);
     const groundBase = h * CFG.terrainBaseY;
-    // 移除滚动偏移量
-    const scroll = 0; // state.t * state.player.velocity.x;
+    const scroll = state.t * state.player.velocity.x;
 
-    // 地面线条
+    // 地面线条 (最快的 parallax 速度)
     for (let x = 0; x <= w; x += 20) {
         let y = groundBase + Math.sin((x + scroll) * 0.005) * 30;
         ctx.lineTo(x, y);
@@ -510,17 +507,21 @@ function drawGroundAndProps(ctx, C) {
     // 装饰物 (Props)
     state.props.forEach(p => {
         const drawer = PROP_DRAWERS[p.type];
-        if (!drawer) return;
+        if (!drawer) return; // 如果没有对应的绘制函数，则跳过
+
+        const x = p.x;
+        // 贴合地面
+        const groundY = groundBase + Math.sin((x + scroll) * 0.005) * 30;
 
         ctx.save();
-        ctx.globalAlpha = p.life; // 根据生命周期淡出
-        ctx.translate(p.x, p.y);
+        ctx.translate(x, groundY);
         ctx.scale(p.scale, p.scale);
         ctx.rotate(p.rot);
 
         ctx.shadowBlur = 10;
         ctx.shadowColor = C.accent;
 
+        // 调用专属的绘制函数
         drawer(ctx, C, p);
 
         ctx.restore();
