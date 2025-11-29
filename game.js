@@ -146,9 +146,22 @@ const windNoiseY = new ValueNoise(Math.random());
 
 // --- 初始化 ---
 function resize() {
+    const oldW = w; // Store old width
+
     w = canvas.width = window.innerWidth;
     h = canvas.height = window.innerHeight;
-    state.player.x = w * CFG.playerInitialX;
+
+    // If this is the first time, initialize player position.
+    // Otherwise, scale the player's x position based on the new width
+    // to prevent it from jumping back to the start.
+    if (oldW > 0) {
+        const xRatio = state.player.x / oldW;
+        state.player.x = w * xRatio;
+    } else {
+        state.player.x = w * CFG.playerInitialX;
+    }
+
+    // Always re-center the player vertically on resize.
     state.player.y = h * 0.5;
 }
 window.addEventListener('resize', resize);
