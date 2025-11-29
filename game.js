@@ -216,8 +216,8 @@ function update(timestamp) {
     }
 
     // b) 风力 (持续变化)
-    const windX = (windNoiseX.get(timestamp / 1000) - 0.5) * 2; // -1 to 1
-    const windY = (windNoiseY.get(timestamp / 800) - 0.5) * 2;  // -1 to 1
+    const windX = (windNoiseX.get(timestamp / 250) - 0.5) * 2; // -1 to 1
+    const windY = (windNoiseY.get(timestamp / 200) - 0.5) * 2;  // -1 to 1
     p.acceleration.x += windX * CFG.windForceScale;
     p.acceleration.y += windY * CFG.windForceScale;
 
@@ -250,10 +250,8 @@ function update(timestamp) {
     // p.x 由下面的 lerp 平滑处理，以避免抖动
     p.y += p.velocity.y;
 
-    // 修正玩家的横向位置，使其感觉在“前进”而不是“移动”
-    const speedProgress = Math.max(0, p.velocity.x / CFG.playerMaxSpeed);
-    const targetX = w * CFG.playerInitialX + lerp(0, w * 0.15, speedProgress);
-    p.x = lerp(p.x, targetX, 0.1); // 平滑地移动到目标X
+    // 玩家的横向位置现在是固定的，以消除视觉上的后退感。
+    p.x = w * CFG.playerInitialX;
 
     // e) 边界检查
     if (p.y < h * 0.1) { p.y = h * 0.1; p.velocity.y *= -0.5; } // 碰撞反弹
@@ -411,7 +409,15 @@ function draw(timestamp) {
     drawTerrain(ctx, C.mountFar, 0.2, 120, h * 0.65, state.t, state.player.velocity.x, 0.002);
     drawTerrain(ctx, C.mountNear, 0.4, 100, h * 0.75, state.t, state.player.velocity.x, 0.004);
 
-    // --- 4. 远景粒子 (速度线) ---
+    // --- NEW: 4. 体积雾/柔光层 ---
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.fillStyle = C.fogColor;
+    ctx.globalAlpha = C.fogAlpha; // 使用插值后的 Alpha
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over'; // 重置混合模式
+    ctx.globalAlpha = 1.0; // 重置透明度
+
+    // --- 5. 远景粒子 (速度线) ---
     drawParticles(ctx, C, 0.5); // 远景粒子更透明，产生速度线效果
 
     // --- 5. 地面和前景 ---
@@ -422,12 +428,6 @@ function draw(timestamp) {
 
     // --- 7. 前景粒子 ---
     drawParticles(ctx, C, 1.0); // 前景粒子最清晰
-
-    // --- 8. 体积雾/柔光层 ---
-    ctx.globalCompositeOperation = 'overlay';
-    ctx.fillStyle = C.fogColor;
-    ctx.globalAlpha = C.fogAlpha; // 使用插值后的 Alpha
-    ctx.fillRect(0, 0, w, h);
 
     ctx.globalCompositeOperation = 'source-over';
 }
@@ -570,9 +570,19 @@ function drawPlayer(ctx, C) {
     // 强烈的辉光
     ctx.shadowBlur = 50;
     ctx.shadowColor = 'white';
-    ctx.fillStyle = C.accent;
 
-    // 绘制新的晶体形状
+    // 绘制深色核心以增加对比度
+    ctx.fillStyle = 'rgba(0, 0, 50, 0.25)';
+    ctx.beginPath();
+    ctx.moveTo(18, 0);
+    ctx.lineTo(-18, -12);
+    ctx.lineTo(-12, 0);
+    ctx.lineTo(-18, 12);
+    ctx.closePath();
+    ctx.fill();
+
+    // 绘制明亮的晶体形状
+    ctx.fillStyle = C.accent;
     ctx.beginPath();
     ctx.moveTo(15, 0); // 尖端
     ctx.lineTo(-15, -10); // 左翼
