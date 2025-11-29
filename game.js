@@ -134,6 +134,162 @@ const THEMES = [
         propType: 'floating_islands',
         terrainStyle: 'ocean', // 海洋地形模拟云海很合适
         weather: 'none'
+    },
+    {
+        name: "GIANT TREE FOREST",
+        sky: ['#1a3a3a', '#005a5a'], // 深邃的森林绿
+        sun: '#f0fff0', sunSize: 60, sunY: 0.1, // 透过枝叶的柔光
+        mountFar: '#002a2a', mountNear: '#0f3a3a',
+        ground: '#1d4a4a', // 森林地面
+        accent: '#88ff88', // 生命的荧光绿
+        fogColor: '#3a7a7a', fogAlpha: 0.2,
+        propType: 'branches',
+        terrainStyle: 'mountain',
+        weather: 'petals' // 飘落的花瓣/叶子
+    },
+    {
+        name: "CRYSTAL CAVES",
+        sky: ['#1e1a3d', '#3e2a6d'], // 洞窟的深紫色
+        sun: '#ffffff', sunSize: 10, sunY: 0.5, // 远处的光源
+        mountFar: '#2e2a5d', mountNear: '#4e3a8d',
+        ground: '#5e4a9d', // 水晶地面
+        accent: '#ffacff', // 水晶的粉色光辉
+        fogColor: '#6e5a9d', fogAlpha: 0.15,
+        propType: 'crystal_clusters',
+        terrainStyle: 'jagged',
+        weather: 'energy_motes' // 能量光点
+    },
+    {
+        name: "AURORA GLACIER",
+        sky: ['#0c1440', '#00a896'], // 极光的混合色
+        sun: '#ffffff', sunSize: 40, sunY: 0.2, // 明亮的月亮
+        mountFar: '#add8e6', mountNear: '#ffffff',
+        ground: '#d4f1f9', // 冰川表面
+        accent: '#98fb98', // 极光的淡绿色
+        fogColor: '#a0d8ef', fogAlpha: 0.3,
+        propType: 'icebergs',
+        terrainStyle: 'jagged',
+        weather: 'snow' // 可以复用雪花天气
+    },
+    {
+        name: "CORAL KINGDOM",
+        sky: ['#003973', '#005f9e'], // 深海蓝
+        sun: '#ffffff', sunSize: 100, sunY: 0.1, // 来自水面的光线
+        mountFar: '#004983', mountNear: '#006fae',
+        ground: '#008fce', // 沙地
+        accent: '#ff6f61', // 珊瑚的鲜艳颜色
+        fogColor: '#007fbe', fogAlpha: 0.25,
+        propType: 'corals',
+        terrainStyle: 'ocean',
+        weather: 'bubbles' // 复用气泡
+    },
+    {
+        name: "HANGING GARDENS",
+        sky: ['#fdebd0', '#f5b041'], // 温暖的晨光
+        sun: '#fff5e1', sunSize: 120, sunY: 0.2,
+        mountFar: '#d5dbdb', mountNear: '#abb2b9',
+        ground: '#a3e4d7', // 青翠的植被
+        accent: '#3498db', // 流水和瀑布的蓝色
+        fogColor: '#fef9e7', fogAlpha: 0.1,
+        propType: 'ancient_pillars',
+        terrainStyle: 'mountain',
+        weather: 'waterfall_spray'
+    },
+    {
+        name: "DESERT COLOSSUS",
+        sky: ['#f5cba7', '#d35400'], // 沙漠的日落
+        sun: '#ffffff', sunSize: 90, sunY: 0.4,
+        mountFar: '#e59866', mountNear: '#af601a',
+        ground: '#d39b5b', // 无垠的沙丘
+        accent: '#fdebd0', // 被照亮的高光
+        fogColor: '#f5cba7', fogAlpha: 0.2,
+        propType: 'colossus_parts',
+        terrainStyle: 'mountain',
+        weather: 'sandstorm'
+    },
+    {
+        name: "STEAMPUNK METROPOLIS",
+        sky: ['#4a4a4a', '#2c3e50'], // 工业烟雾
+        sun: '#ffc107', sunSize: 70, sunY: 0.3, // 齿轮太阳
+        mountFar: '#566573', mountNear: '#2c3e50',
+        ground: '#839192', // 金属地面
+        accent: '#e67e22', // 黄铜的光泽
+        fogColor: '#99a3a4', fogAlpha: 0.3,
+        propType: 'gears_and_pipes',
+        terrainStyle: 'cityscape',
+        weather: 'steam'
+    },
+    {
+        name: "SILENT LIBRARY",
+        sky: ['#2c2c54', '#1a1a3a'], // 深邃的室内感
+        sun: '#fffacd', sunSize: 50, sunY: 0.1, // 魔法灯光
+        mountFar: '#3c3c64', mountNear: '#4c4c7a',
+        ground: '#5c5c8a', // 书架的阴影
+        accent: '#ffd700', // 金色的书页
+        fogColor: '#4c4c7a', fogAlpha: 0.25,
+        propType: 'flying_books',
+        terrainStyle: 'cityscape', // 模拟书架墙
+        weather: 'glowing_dust'
+    },
+    {
+        name: "WORLD OF REFLECTIONS",
+        sky: ['#eaf2f8', '#aed6f1'], // 明亮、干净的颜色
+        sun: '#ffffff', sunSize: 200, sunY: 0.5,
+        mountFar: '#d6eaf8', mountNear: '#aed6f1',
+        ground: '#85c1e9', // 镜面/水面
+        accent: '#ffffff',
+        fogColor: '#eaf2f8', fogAlpha: 0.1,
+        propType: 'reflection_shards',
+        terrainStyle: 'ocean',
+        weather: 'none'
+    },
+    {
+        name: "PLAYGROUND OF GIANTS",
+        sky: ['#fcf3cf', '#f7dc6f'], // 孩童般的暖黄色
+        sun: '#fdfefe', sunSize: 150, sunY: 0.3,
+        mountFar: '#fad7a0', mountNear: '#f5b041',
+        ground: '#f8c471', // 温暖的地面
+        accent: '#e74c3c', // 玩具的鲜艳颜色
+        fogColor: '#fcf3cf', fogAlpha: 0.2,
+        propType: 'giant_toys',
+        terrainStyle: 'mountain',
+        weather: 'none'
+    },
+    {
+        name: "CORRIDOR OF MEMORIES",
+        sky: ['#d5d8dc', '#566573'], // 褪色的黑白
+        sun: '#ffffff', sunSize: 80, sunY: 0.2, // 模糊的光源
+        mountFar: '#abb2b9', mountNear: '#808b96',
+        ground: '#566573', // 灰色的地面
+        accent: '#ffffff',
+        fogColor: '#d5d8dc', fogAlpha: 0.3,
+        propType: 'memory_fragments',
+        terrainStyle: 'jagged',
+        weather: 'none'
+    },
+    {
+        name: "STRING THEORY SEA",
+        sky: ['#000000', '#1c0a1c'], // 纯黑的虚空
+        sun: '#ffffff', sunSize: 5, sunY: 0.5, // 奇点
+        mountFar: '#1c0a1c', mountNear: '#2c1a2c',
+        ground: '#3c2a3c', // 无底的海洋
+        accent: '#ff00ff', // 能量弦的颜色
+        fogColor: '#2c1a2c', fogAlpha: 0.1,
+        propType: 'energy_strings',
+        terrainStyle: 'ocean',
+        weather: 'none'
+    },
+    {
+        name: "SHATTERED REALITY",
+        sky: ['#ffffff', '#ffffff'], // 纯白，无渐变
+        sun: '#000000', sunSize: 50, sunY: 0.5, // 黑洞太阳
+        mountFar: '#cccccc', mountNear: '#999999',
+        ground: '#666666', // 碎裂的地面
+        accent: '#ff0000', // 错误的颜色
+        fogColor: '#ffffff', fogAlpha: 0.0, // 无雾
+        propType: 'glitches',
+        terrainStyle: 'jagged',
+        weather: 'none'
     }
 ];
 
@@ -508,6 +664,39 @@ function updateWeather() {
             p.vy = random(0.5, 1.5);
             p.size = random(2, 5);
             p.wave = random(0, Math.PI * 2); // 用于实现左右摇摆
+        } else if (weatherType === 'petals') {
+            p.vx = random(-0.8, 0.8) + state.player.velocity.x * 0.03;
+            p.vy = random(0.8, 2);
+            p.size = random(4, 8);
+            p.wave = random(0, Math.PI * 2);
+        } else if (weatherType === 'energy_motes') {
+            p.vx = random(-0.2, 0.2);
+            p.vy = random(-0.2, 0.2); // 自由漂浮
+            p.size = random(1, 3);
+        } else if (weatherType === 'waterfall_spray') {
+            p.y = random(0, h);
+            p.vx = -state.player.velocity.x * 0.1 - random(1, 2);
+            p.vy = random(2, 4); // 向下飘散的水雾
+            p.size = random(10, 20);
+        } else if (weatherType === 'sandstorm') {
+            p.y = random(0, h);
+            p.x = w + 20;
+            p.vx = state.player.velocity.x * 2.5 + random(15, 25); // 强风
+            p.vy = random(-1, 1);
+            p.size = random(1, 3);
+        } else if (weatherType === 'steam') {
+            p.y = h + 10; // 从底部升起
+            p.vx = random(-0.5, 0.5) - state.player.velocity.x * 0.05;
+            p.vy = -random(2, 5); // 向上
+            p.size = random(20, 40);
+        } else if (weatherType === 'glowing_dust') {
+            p.vx = random(-0.3, 0.3) - state.player.velocity.x * 0.01;
+            p.vy = random(-0.3, 0.3); // 缓慢漂浮
+            p.size = random(1, 2);
+        } else if (weatherType === 'memory_fragments') {
+            p.vx = random(-0.1, 0.1) - state.player.velocity.x * 0.01;
+            p.vy = random(-0.1, 0.1);
+            p.size = random(20, 50);
         }
         state.weatherParticles.push(p);
     }
@@ -879,6 +1068,47 @@ function drawWeather(ctx, C) {
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p.x - p.vx * tailLength, p.y - p.vy * tailLength);
             ctx.stroke();
+        } else if (p.type === 'petals') {
+            p.wave += 0.08;
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(Math.sin(p.wave) * Math.PI * 0.25); // 旋转
+            ctx.fillStyle = `rgba(136, 255, 136, ${p.life * 0.8})`;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, p.size, p.size / 2, 0, 0, Math.PI * 2); // 椭圆形花瓣
+            ctx.fill();
+            ctx.restore();
+        } else if (p.type === 'energy_motes') {
+            ctx.fillStyle = `rgba(255, 172, 255, ${p.life * 0.9})`;
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = C.accent;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (p.type === 'waterfall_spray') {
+            ctx.fillStyle = `rgba(255, 255, 255, ${p.life * 0.2})`; // 水雾非常透明
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (p.type === 'sandstorm') {
+            ctx.fillStyle = `rgba(211, 155, 91, ${p.life * 0.5})`;
+            ctx.fillRect(p.x, p.y, p.size * 5, p.size); // 拉长的沙粒
+        } else if (p.type === 'steam') {
+            ctx.fillStyle = `rgba(153, 163, 164, ${p.life * 0.3})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * (1 - p.life), 0, Math.PI * 2); // 蒸汽云会变大并消失
+            ctx.fill();
+        } else if (p.type === 'glowing_dust') {
+            ctx.fillStyle = `rgba(255, 215, 0, ${p.life})`;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = C.accent;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (p.type === 'memory_fragments') {
+            ctx.strokeStyle = `rgba(255, 255, 255, ${p.life * 0.15})`;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(p.x, p.y, p.size, p.size * 0.6);
         }
     });
     ctx.restore();
@@ -1024,6 +1254,142 @@ const PROP_DRAWERS = {
         ctx.beginPath();
         ctx.ellipse(0, -10 * p.scale, 25 * p.scale, 10 * p.scale, 0, 0, Math.PI * 2);
         ctx.fill();
+    },
+    'branches': (ctx, C, p) => {
+        // 绘制风格化的巨大树枝
+        ctx.strokeStyle = '#0f3a3a'; // 树枝的深色
+        ctx.lineWidth = random(5, 15) * p.scale;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(
+            random(-20, 20), -30 * p.scale,
+            random(30, 70), -80 * p.scale,
+            random(80, 120), -120 * p.scale
+        );
+        ctx.stroke();
+    },
+    'crystal_clusters': (ctx, C, p) => {
+        // 绘制一簇发光的水晶
+        const crystalCount = Math.floor(random(3, 7));
+        for (let i = 0; i < crystalCount; i++) {
+            ctx.fillStyle = `rgba(255, 172, 255, ${random(0.3, 0.8)})`;
+            ctx.beginPath();
+            const x = random(-20, 20) * p.scale;
+            const h = random(20, 60) * p.scale;
+            const w = random(5, 15) * p.scale;
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x - w, -h);
+            ctx.lineTo(x, -h * 1.2);
+            ctx.lineTo(x + w, -h);
+            ctx.closePath();
+            ctx.fill();
+        }
+    },
+    'icebergs': (ctx, C, p) => {
+        // 绘制浮冰
+        ctx.fillStyle = `rgba(255, 255, 255, ${random(0.7, 0.9)})`;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(random(20, 40) * p.scale, random(-10, 10));
+        ctx.lineTo(random(10, 30) * p.scale, -random(20, 50) * p.scale);
+        ctx.lineTo(random(-10, 10) * p.scale, -random(30, 60) * p.scale);
+        ctx.lineTo(random(-20, -30) * p.scale, -random(10, 40) * p.scale);
+        ctx.closePath();
+        ctx.fill();
+    },
+    'corals': (ctx, C, p) => {
+        // 绘制风格化的珊瑚
+        ctx.strokeStyle = C.accent;
+        ctx.lineWidth = random(2, 5) * p.scale;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, -random(20, 50) * p.scale);
+        ctx.stroke();
+    },
+    'ancient_pillars': (ctx, C, p) => {
+        // 绘制覆盖着藤蔓的古代柱子
+        ctx.fillStyle = C.mountNear;
+        ctx.fillRect(-10 * p.scale, -random(50, 150) * p.scale, 20 * p.scale, random(50, 150) * p.scale);
+        // 藤蔓
+        ctx.strokeStyle = '#27ae60';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-10 * p.scale, 0);
+        ctx.quadraticCurveTo(0, -50 * p.scale, 10 * p.scale, -100 * p.scale);
+        ctx.stroke();
+    },
+    'colossus_parts': (ctx, C, p) => {
+        // 绘制被沙子半掩埋的巨像部件，例如一只手
+        ctx.fillStyle = C.mountNear;
+        ctx.beginPath();
+        ctx.moveTo(-30 * p.scale, 0);
+        ctx.lineTo(-20 * p.scale, -40 * p.scale); // 手指
+        ctx.lineTo(0, -35 * p.scale); // 手指
+        ctx.lineTo(20 * p.scale, -45 * p.scale); // 手指
+        ctx.lineTo(30 * p.scale, -10 * p.scale); // 手掌
+        ctx.closePath();
+        ctx.fill();
+    },
+    'gears_and_pipes': (ctx, C, p) => {
+        // 绘制齿轮和管道
+        ctx.strokeStyle = C.accent;
+        ctx.lineWidth = 8 * p.scale;
+        ctx.beginPath();
+        ctx.arc(0, -30 * p.scale, 20 * p.scale, 0, Math.PI * 1.5); // 管道
+        ctx.stroke();
+
+        ctx.fillStyle = C.mountNear;
+        ctx.beginPath();
+        ctx.arc(random(-20, 20), -random(20, 40), 15 * p.scale, 0, Math.PI * 2); // 齿轮
+        ctx.fill();
+    },
+    'flying_books': (ctx, C, p) => {
+        // 绘制一本打开的、正在飞舞的书
+        ctx.fillStyle = '#8b4513'; // 书皮
+        ctx.beginPath();
+        ctx.moveTo(-15 * p.scale, 0);
+        ctx.quadraticCurveTo(0, -10 * p.scale, 15 * p.scale, 0);
+        ctx.quadraticCurveTo(0, 10 * p.scale, -15 * p.scale, 0);
+        ctx.fill();
+
+        ctx.fillStyle = C.accent; // 书页
+        ctx.globalAlpha = 0.8;
+        ctx.fillText("...", -5, -2); // 象征性的文字
+    },
+    'reflection_shards': (ctx, C, p) => {
+        // 绘制反射光线的碎片
+        ctx.strokeStyle = `rgba(255, 255, 255, ${random(0.5, 1)})`;
+        ctx.lineWidth = random(1, 3);
+        ctx.beginPath();
+        ctx.moveTo(random(-20, 20), -random(0, 40));
+        ctx.lineTo(random(-20, 20), -random(40, 80));
+        ctx.stroke();
+    },
+    'giant_toys': (ctx, C, p) => {
+        // 绘制一个巨大的积木块
+        ctx.fillStyle = C.accent;
+        ctx.globalAlpha = 1.0;
+        ctx.fillRect(-20 * p.scale, -40 * p.scale, 40 * p.scale, 40 * p.scale);
+        ctx.strokeStyle = 'black';
+        ctx.strokeRect(-20 * p.scale, -40 * p.scale, 40 * p.scale, 40 * p.scale);
+    },
+    'energy_strings': (ctx, C, p) => {
+        // 绘制振动的能量弦
+        ctx.strokeStyle = `rgba(255, 0, 255, ${random(0.3, 0.9)})`;
+        ctx.lineWidth = random(1, 4);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(
+            random(-5, 5), -50,
+            random(-5, 5), -150,
+            0, -200
+        );
+        ctx.stroke();
+    },
+    'glitches': (ctx, C, p) => {
+        // 绘制红色的故障方块
+        ctx.fillStyle = C.accent;
+        ctx.fillRect(random(-10, 10), -random(0, 50), random(5, 15), random(5, 15));
     }
 };
 
@@ -1199,9 +1565,72 @@ function updateDistantEntities() {
         });
     }
 
+    if (theme.name === "CORAL KINGDOM" && Math.random() < 0.005 && !state.distantEntities.some(e => e.type === 'whale')) {
+        state.distantEntities.push({
+            type: 'whale',
+            x: w + 300,
+            y: random(h * 0.3, h * 0.7),
+            vx: -0.1, // 极其缓慢
+            life: 1,
+            scale: random(1, 1.5)
+        });
+    }
+
+    if (theme.name === "CRYSTAL CAVES" && Math.random() < 0.015) {
+        state.distantEntities.push({
+            type: 'resonance',
+            x: random(0, w),
+            y: random(h * 0.5, h * 0.8),
+            life: 1,
+            radius: 0,
+            maxRadius: random(50, 150)
+        });
+    }
+
+    if (theme.name === "DESERT COLOSSUS" && Math.random() < 0.008 && !state.distantEntities.some(e => e.type === 'colossus_head')) {
+        state.distantEntities.push({
+            type: 'colossus_head',
+            x: w * 0.7,
+            y: h * 0.6,
+            life: 1, // 持续存在
+            eyeGlow: 0,
+            eyeGlowTimer: random(100, 300)
+        });
+    }
+
+    if (theme.name === "STEAMPUNK METROPOLIS" && !state.distantEntities.some(e => e.type === 'clock_tower')) {
+        state.distantEntities.push({
+            type: 'clock_tower',
+            x: w * 0.8,
+            y: h * 0.7,
+            life: 1,
+            angle: 0
+        });
+    }
+
+    if (theme.name === "SHATTERED REALITY" && Math.random() < 0.1) {
+        state.distantEntities.push({
+            type: 'glitch_effect',
+            x: random(0, w),
+            y: random(0, h),
+            life: random(0.05, 0.2),
+            width: random(50, 200),
+            height: random(5, 20)
+        });
+    }
+
+    if (theme.name === "STRING THEORY SEA" && Math.random() < 0.03) {
+        state.distantEntities.push({
+            type: 'string_pluck',
+            x: random(0, w),
+            life: 1,
+            amplitude: random(10, 30)
+        });
+    }
+
     // 3. 更新实体状态
     state.distantEntities.forEach(e => {
-        if (e.type === 'fleet') {
+        if (e.type === 'fleet' || e.type === 'whale') {
             e.x += e.vx;
         } else if (e.type === 'geyser') {
             if (e.y > e.maxHeight) {
@@ -1219,6 +1648,25 @@ function updateDistantEntities() {
                 p.y += 1; // 粒子下落
                 p.life -= 0.02;
             });
+        } else if (e.type === 'resonance') {
+            e.radius += 1.5;
+            e.life = 1 - (e.radius / e.maxRadius);
+        } else if (e.type === 'colossus_head') {
+            e.eyeGlowTimer--;
+            if (e.eyeGlowTimer < 0) {
+                e.eyeGlow += 0.05;
+                if (e.eyeGlow > 1) {
+                    e.eyeGlow = 0;
+                    e.eyeGlowTimer = random(200, 500);
+                }
+            }
+        } else if (e.type === 'clock_tower') {
+            e.angle += 0.0005;
+        } else if (e.type === 'glitch_effect') {
+            e.life -= 0.01;
+        } else if (e.type === 'string_pluck') {
+            e.amplitude *= 0.9; // 振幅衰减
+            if (e.amplitude < 0.1) e.life = 0;
         }
     });
 }
@@ -1253,6 +1701,89 @@ function drawDistantEntities(ctx, C) {
                     ctx.arc(p.x, p.y, random(2, 5), 0, Math.PI * 2);
                     ctx.fill();
                 });
+                break;
+
+            case 'whale':
+                // 绘制巨大的、半透明的鲸鱼轮廓
+                ctx.fillStyle = `rgba(255, 255, 255, 0.1)`; // 非常透明
+                ctx.strokeStyle = `rgba(255, 255, 255, 0.2)`;
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 30;
+                ctx.shadowColor = C.sun;
+
+                ctx.beginPath();
+                ctx.moveTo(e.x, e.y);
+                ctx.bezierCurveTo(e.x - 100 * e.scale, e.y - 50 * e.scale, e.x - 200 * e.scale, e.y, e.x - 300 * e.scale, e.y + 20 * e.scale);
+                ctx.bezierCurveTo(e.x - 250 * e.scale, e.y + 60 * e.scale, e.x - 150 * e.scale, e.y + 40 * e.scale, e.x, e.y);
+                ctx.fill();
+                ctx.stroke();
+                break;
+
+            case 'resonance':
+                // 绘制扩张的能量环
+                ctx.strokeStyle = C.accent;
+                ctx.lineWidth = 3 * e.life;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = C.accent;
+
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+                ctx.stroke();
+                break;
+
+            case 'colossus_head':
+                // 绘制巨像的头部轮廓
+                ctx.fillStyle = C.mountFar;
+                ctx.beginPath();
+                ctx.moveTo(e.x, e.y);
+                ctx.lineTo(e.x - 50, e.y - 150);
+                ctx.lineTo(e.x + 50, e.y - 150);
+                ctx.lineTo(e.x + 80, e.y);
+                ctx.fill();
+
+                // 绘制发光的眼睛
+                ctx.fillStyle = `rgba(255, 255, 255, ${e.eyeGlow})`;
+                ctx.shadowBlur = 30;
+                ctx.shadowColor = 'white';
+                ctx.beginPath();
+                ctx.arc(e.x, e.y - 100, 10, 0, Math.PI * 2);
+                ctx.fill();
+                break;
+
+            case 'clock_tower':
+                // 绘制钟楼
+                ctx.fillStyle = C.mountNear;
+                ctx.fillRect(e.x - 20, e.y - 200, 40, 200);
+
+                // 绘制钟面和指针
+                ctx.save();
+                ctx.translate(e.x, e.y - 200);
+                ctx.rotate(e.angle);
+                ctx.strokeStyle = C.accent;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, -30);
+                ctx.stroke();
+                ctx.restore();
+                break;
+
+            case 'glitch_effect':
+                ctx.fillStyle = C.accent;
+                ctx.globalAlpha = e.life * 5; // Glitch 效果更明显
+                ctx.fillRect(e.x, e.y, e.width, e.height);
+                break;
+
+            case 'string_pluck':
+                ctx.strokeStyle = C.accent;
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = C.accent;
+
+                ctx.beginPath();
+                ctx.moveTo(e.x, 0);
+                ctx.quadraticCurveTo(e.x + Math.sin(e.life * 10) * e.amplitude, h / 2, e.x, h);
+                ctx.stroke();
                 break;
         }
     });
