@@ -1779,11 +1779,23 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
         const chunk = state.terrain.chunks.get(chunkId);
         let groundY = h * CFG.terrainBaseY;
         if (chunk) {
+            const step = CFG.CHUNK_WIDTH / CFG.CHUNK_RESOLUTION;
             const xInChunk = p.worldX - chunk.worldX;
-            const pointIndex = Math.round(xInChunk / (CFG.CHUNK_WIDTH / CFG.CHUNK_RESOLUTION));
-            const pointData = chunk.layers[2]?.[pointIndex];
-            if (pointData) {
-                groundY = lerp(pointData.y1, pointData.y2, progress);
+            const pointIndexFloat = xInChunk / step;
+
+            const index1 = Math.floor(pointIndexFloat);
+            const index2 = index1 + 1;
+
+            const pointData1 = chunk.layers[2]?.[index1];
+            const pointData2 = chunk.layers[2]?.[index2];
+
+            if (pointData1 && pointData2) {
+                const t = pointIndexFloat - index1;
+                const y1 = lerp(pointData1.y1, pointData1.y2, progress);
+                const y2 = lerp(pointData2.y1, pointData2.y2, progress);
+                groundY = lerp(y1, y2, t);
+            } else if (pointData1) {
+                groundY = lerp(pointData1.y1, pointData1.y2, progress);
             }
         }
 
