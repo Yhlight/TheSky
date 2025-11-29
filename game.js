@@ -247,15 +247,17 @@ function update(timestamp) {
     p.velocity.x = Math.max(0, p.velocity.x);
 
     // d) 根据速度更新位置
-    // p.x 由下面的 lerp 平滑处理，以避免抖动
+    p.x += p.velocity.x;
     p.y += p.velocity.y;
-
-    // 玩家的横向位置现在是固定的，以消除视觉上的后退感。
-    p.x = w * CFG.playerInitialX;
 
     // e) 边界检查
     if (p.y < h * 0.1) { p.y = h * 0.1; p.velocity.y *= -0.5; } // 碰撞反弹
     if (p.y > h * 0.9) { p.y = h * 0.9; p.velocity.y *= -0.5; }
+
+    // f) 屏幕回绕
+    if (p.x > w + 50) {
+        p.x = -50;
+    }
 
     // --- 3. 更新拖尾 ---
     state.player.trail.push({ x: state.player.x, y: state.player.y, speed: state.player.velocity.x });
@@ -307,11 +309,12 @@ function generateWorldEntities() {
 
         if (propTheme.propType !== 'none') {
             state.props.push({
-                x: w + 100,
-                y: h * CFG.terrainBaseY - random(50, 150),
+                x: random(0, w),
+                y: random(h * 0.6, h * 0.9),
                 type: propTheme.propType,
                 scale: random(0.8, 1.5),
-                rot: random(0, Math.PI * 2)
+                rot: random(0, Math.PI * 2),
+                life: 1.0 // 1 = 100% life
             });
         }
     }
@@ -333,8 +336,8 @@ function generateWorldEntities() {
     // 使用反向循环安全地在迭代时移除道具
     for (let i = state.props.length - 1; i >= 0; i--) {
         const p = state.props[i];
-        p.x -= state.player.velocity.x;
-        if (p.x <= -200) {
+        p.life -= 0.005; // 慢慢消失
+        if (p.life <= 0) {
             state.props.splice(i, 1);
         }
     }
@@ -438,7 +441,8 @@ function drawTerrain(ctx, color, speedScale, amp, base, t, currentSpeed, freq) {
     ctx.beginPath();
     ctx.moveTo(0, h);
     for (let x = 0; x <= w; x += 10) { // 增加采样密度
-        let scroll = t * currentSpeed * speedScale * 0.01;
+        // 移除滚动偏移量
+        const scroll = 0; // t * currentSpeed * speedScale * 0.01;
 
         // 叠加两层噪声以获得更丰富的细节
         let noiseVal = terrainNoise.get((x * freq) + scroll) * amp;
@@ -487,9 +491,10 @@ function drawGroundAndProps(ctx, C) {
     ctx.beginPath();
     ctx.moveTo(0, h);
     const groundBase = h * CFG.terrainBaseY;
-    const scroll = state.t * state.player.velocity.x;
+    // 移除滚动偏移量
+    const scroll = 0; // state.t * state.player.velocity.x;
 
-    // 地面线条 (最快的 parallax 速度)
+    // 地面线条
     for (let x = 0; x <= w; x += 20) {
         let y = groundBase + Math.sin((x + scroll) * 0.005) * 30;
         ctx.lineTo(x, y);
@@ -502,24 +507,20 @@ function drawGroundAndProps(ctx, C) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // 装饰物 (Props) - *** 重构后的逻辑 ***
+    // 装饰物 (Props)
     state.props.forEach(p => {
         const drawer = PROP_DRAWERS[p.type];
-        if (!drawer) return; // 如果没有对应的绘制函数，则跳过
-
-        const x = p.x;
-        // 贴合地面
-        const groundY = groundBase + Math.sin((x + scroll) * 0.005) * 30;
+        if (!drawer) return;
 
         ctx.save();
-        ctx.translate(x, groundY);
+        ctx.globalAlpha = p.life; // 根据生命周期淡出
+        ctx.translate(p.x, p.y);
         ctx.scale(p.scale, p.scale);
         ctx.rotate(p.rot);
 
         ctx.shadowBlur = 10;
         ctx.shadowColor = C.accent;
 
-        // 调用专属的绘制函数
         drawer(ctx, C, p);
 
         ctx.restore();
