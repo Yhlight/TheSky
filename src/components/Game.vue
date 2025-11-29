@@ -1827,45 +1827,36 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
 function drawPlayer(ctx, C) {
     const p = state.player;
 
-    // 1. 拖尾 (丝绸效果)
+    // 1. 拖尾 (光带效果)
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
 
-    for (let i = 0; i < p.trail.length - 1; i++) {
-        const point1 = p.trail[i];
-        const point2 = p.trail[i + 1];
+    if (p.trail.length > 2) {
+        ctx.beginPath();
+        ctx.moveTo(p.trail[0].x, p.trail[0].y);
 
-        // 基础宽度随速度和位置变化 (越靠近头部越宽)
-        const baseWidth = (2 + point1.speed * 0.5) * (i / p.trail.length);
+        for (let i = 1; i < p.trail.length - 2; i++) {
+            const point = p.trail[i];
+            const nextPoint = p.trail[i + 1];
 
-        // 计算两点间的向量和法线
-        const dx = point2.x - point1.x;
-        const dy = point2.y - point1.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const nx = -dy / dist;
-        const ny = dx / dist;
+            const xc = (point.x + nextPoint.x) / 2;
+            const yc = (point.y + nextPoint.y) / 2;
 
-        // 创建一个径向渐变作为笔刷
-        const grad = ctx.createLinearGradient(
-            point1.x - nx * baseWidth, point1.y - ny * baseWidth,
-            point1.x + nx * baseWidth, point1.y + ny * baseWidth
-        );
+            ctx.quadraticCurveTo(point.x, point.y, xc, yc);
+        }
 
-        const alpha = (i / p.trail.length) * 0.5; // 透明度
+        // 动态线宽和透明度
+        const alpha = 0.5; // Base alpha
+        const baseWidth = Math.max(1, 4 + state.player.velocity.x * 0.6);
+
+        const grad = ctx.createLinearGradient(p.x, p.y - 50, p.x, p.y + 50);
         grad.addColorStop(0, `rgba(255, 255, 255, 0)`);
         grad.addColorStop(0.5, `rgba(255, 255, 255, ${alpha})`);
         grad.addColorStop(1, `rgba(255, 255, 255, 0)`);
 
-        ctx.fillStyle = grad;
-
-        // 绘制连接两点的四边形
-        ctx.beginPath();
-        ctx.moveTo(point1.x - nx * baseWidth, point1.y - ny * baseWidth);
-        ctx.lineTo(point2.x - nx * baseWidth, point2.y - ny * baseWidth);
-        ctx.lineTo(point2.x + nx * baseWidth, point2.y + ny * baseWidth);
-        ctx.lineTo(point1.x + nx * baseWidth, point1.y + ny * baseWidth);
-        ctx.closePath();
-        ctx.fill();
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = baseWidth;
+        ctx.stroke();
     }
     ctx.restore();
 
@@ -1874,32 +1865,25 @@ function drawPlayer(ctx, C) {
     ctx.translate(p.x, p.y);
 
     // 根据垂直速度旋转
-    const angle = Math.atan2(p.velocity.y, 20); // 20 是一个魔数，用于控制旋转的灵敏度
+    const angle = Math.atan2(p.velocity.y, 20);
     ctx.rotate(angle);
 
     // 强烈的辉光
-    ctx.shadowBlur = 50;
-    ctx.shadowColor = 'white';
+    ctx.shadowBlur = 40;
+    ctx.shadowColor = C.accent;
 
-    // 绘制深色核心以增加对比度
-    ctx.fillStyle = 'rgba(0, 0, 50, 0.25)';
-    ctx.beginPath();
-    ctx.moveTo(18, 0);
-    ctx.lineTo(-18, -12);
-    ctx.lineTo(-12, 0);
-    ctx.lineTo(-18, 12);
-    ctx.closePath();
-    ctx.fill();
-
-    // 绘制明亮的晶体形状
+    // 绘制一个更柔和的核心
     ctx.fillStyle = C.accent;
     ctx.beginPath();
-    ctx.moveTo(15, 0); // 尖端
-    ctx.lineTo(-15, -10); // 左翼
-    ctx.lineTo(-10, 0); // 尾部中心
-    ctx.lineTo(-15, 10); // 右翼
-    ctx.closePath();
+    ctx.arc(0, 0, 8, 0, Math.PI * 2);
     ctx.fill();
+
+    // 添加一个旋转的光环
+    ctx.strokeStyle = `rgba(255, 255, 255, 0.5)`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, 15, 0, Math.PI * 1.5);
+    ctx.stroke();
 
     ctx.restore();
 }
