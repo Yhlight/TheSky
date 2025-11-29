@@ -1769,10 +1769,11 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
 
         const x = p.worldX - state.worldScrollX;
 
-        // 从缓存中获取精确的地面高度 (实时混合)
+        // 从缓存中获取精确的地面高度 (实时混合，跨区块)
         const chunkId = Math.floor(p.worldX / CFG.CHUNK_WIDTH);
         const chunk = state.terrain.chunks.get(chunkId);
         let groundY = h * CFG.terrainBaseY;
+
         if (chunk) {
             const step = CFG.CHUNK_WIDTH / CFG.CHUNK_RESOLUTION;
             const xInChunk = p.worldX - chunk.worldX;
@@ -1781,8 +1782,16 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
             const index1 = Math.floor(pointIndexFloat);
             const index2 = index1 + 1;
 
-            const pointData1 = chunk.layers[2]?.[index1];
-            const pointData2 = chunk.layers[2]?.[index2];
+            let pointData1 = chunk.layers[2]?.[index1];
+            let pointData2 = chunk.layers[2]?.[index2];
+
+            // 如果index2超出了当前区块的范围，尝试从下一个区块获取
+            if (!pointData2 && index2 >= CFG.CHUNK_RESOLUTION) {
+                const nextChunk = state.terrain.chunks.get(chunkId + 1);
+                if (nextChunk) {
+                    pointData2 = nextChunk.layers[2]?.[0];
+                }
+            }
 
             if (pointData1 && pointData2) {
                 const t = pointIndexFloat - index1;
