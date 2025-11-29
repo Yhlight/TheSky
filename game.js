@@ -59,11 +59,11 @@ const THEMES = [
 
 // --- 配置 ---
 const CFG = {
-    playerMinSpeed: 1.0,    // 基础巡航速度 (风力可能使其低于此值)
-    playerMaxSpeed: 5,   // 加速时最大速度
-    playerThrust: 0.06,    // 玩家加速时的推力
-    dragCoefficient: 0.98, // 阻力系数 (越接近1，速度衰减越慢)
-    windForceScale: 0.15,  // 風力強度（略微增强以实现速度波动）
+    playerMinSpeed: 1.5,    // 基础巡航速度 (风力可能使其低于此值)
+    playerMaxSpeed: 6,   // 加速时最大速度
+    playerThrust: 0.04,    // 玩家加速时的推力
+    dragCoefficient: 0.985, // 阻力系数 (越接近1，速度衰减越慢)
+    windForceScale: 0.1,  // 風力強度（略微增强以实现速度波动）
     hoverForce: 0.01,   // 悬浮/回中力
     hoverDamping: 0.95, // 悬浮阻尼，防止过度振荡
     transitionFrames: 350, // 场景切换所需帧数
@@ -74,6 +74,7 @@ const CFG = {
 // --- 状态管理 ---
 const state = {
     t: 0, // 全局时间
+    worldScrollX: 0, // 累积的世界滚动距离
     isAccelerating: false, // 是否正在加速
 
     currentThemeIdx: 0,
@@ -246,7 +247,10 @@ function update(timestamp) {
     // *** 关键修复：绝不后退 ***
     p.velocity.x = Math.max(0, p.velocity.x);
 
-    // d) 根据速度更新位置
+    // d) 累积世界滚动距离
+    state.worldScrollX += p.velocity.x;
+
+    // e) 根据速度更新位置
     // p.x 由下面的 lerp 平滑处理，以避免抖动
     p.y += p.velocity.y;
 
@@ -316,7 +320,7 @@ function generateWorldEntities() {
 
         if (propTheme.propType !== 'none') {
             state.props.push({
-                x: w + 100,
+                worldX: state.worldScrollX + w + 100, // 使用世界坐标
                 y: h * CFG.terrainBaseY - random(50, 150),
                 type: propTheme.propType,
                 scale: random(0.8, 1.5),
@@ -339,14 +343,11 @@ function generateWorldEntities() {
     }
 
     // 更新实体位置和清理
-    // 使用反向循环安全地在迭代时移除道具
-    for (let i = state.props.length - 1; i >= 0; i--) {
-        const p = state.props[i];
-        p.x -= state.player.velocity.x;
-        if (p.x <= -200) {
-            state.props.splice(i, 1);
-        }
-    }
+    // 道具现在基于世界坐标，所以我们只在这里过滤掉离开屏幕的
+    state.props = state.props.filter(p => {
+        const screenX = p.worldX - state.worldScrollX;
+        return screenX > -200; // 屏幕左侧200像素外
+    });
 
     // 使用反向循环安全地在迭代时移除粒子
     for (let i = state.particles.length - 1; i >= 0; i--) {
@@ -415,8 +416,8 @@ function draw(timestamp) {
     ctx.restore();
 
     // --- 3. 多层视差地形 ---
-    drawTerrain(ctx, C.mountFar, 0.2, 120, h * 0.65, state.t, state.player.velocity.x, 0.002);
-    drawTerrain(ctx, C.mountNear, 0.4, 100, h * 0.75, state.t, state.player.velocity.x, 0.004);
+    drawTerrain(ctx, C.mountFar, 0.2, 120, h * 0.65, 0.002);
+    drawTerrain(ctx, C.mountNear, 0.4, 100, h * 0.75, 0.004);
 
     // --- NEW: 4. 体积雾/柔光层 ---
     ctx.globalCompositeOperation = 'overlay';
@@ -442,12 +443,12 @@ function draw(timestamp) {
 }
 
 // 绘制地形 (*** 使用Value Noise重构 ***)
-function drawTerrain(ctx, color, speedScale, amp, base, t, currentSpeed, freq) {
+function drawTerrain(ctx, color, speedScale, amp, base, freq) {
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(0, h);
     for (let x = 0; x <= w; x += 10) { // 增加采样密度
-        let scroll = t * currentSpeed * speedScale * 0.01;
+        let scroll = state.worldScrollX * speedScale * 0.01;
 
         // 叠加两层噪声以获得更丰富的细节
         let noiseVal = terrainNoise.get((x * freq) + scroll) * amp;
@@ -496,7 +497,7 @@ function drawGroundAndProps(ctx, C) {
     ctx.beginPath();
     ctx.moveTo(0, h);
     const groundBase = h * CFG.terrainBaseY;
-    const scroll = state.t * state.player.velocity.x;
+    const scroll = state.worldScrollX;
 
     // 地面线条 (最快的 parallax 速度)
     for (let x = 0; x <= w; x += 20) {
@@ -516,9 +517,9 @@ function drawGroundAndProps(ctx, C) {
         const drawer = PROP_DRAWERS[p.type];
         if (!drawer) return; // 如果没有对应的绘制函数，则跳过
 
-        const x = p.x;
+        const x = p.worldX - scroll; // 从世界坐标计算屏幕坐标
         // 贴合地面
-        const groundY = groundBase + Math.sin((x + scroll) * 0.005) * 30;
+        const groundY = groundBase + Math.sin((p.worldX) * 0.005) * 30;
 
         ctx.save();
         ctx.translate(x, groundY);
