@@ -485,12 +485,22 @@ const Director = {
         const baseHue = Math.random() * 360;
         const saturation = random(40, 70);
         const lightness = random(30, 60);
-        const model = ['split', 'analogous', 'triadic'][Math.floor(Math.random() * 3)];
+
+        // 视觉优化：调整模型权重，优先使用和谐的邻近色
+        const rand = Math.random();
+        let model;
+        if (rand < 0.7) { // 70% 概率
+            model = 'analogous';
+        } else if (rand < 0.9) { // 20% 概率
+            model = 'split';
+        } else { // 10% 概率
+            model = 'triadic';
+        }
 
         let sky1, sky2, ground, mountNear, mountFar, accent, sun, fog;
 
         switch (model) {
-            case 'analogous': // 相似色
+            case 'analogous': // 相似色 (最和谐)
                 sky1 = this._hslToHex(baseHue, saturation, lightness + 15);
                 sky2 = this._hslToHex((baseHue + 30) % 360, saturation, lightness);
                 ground = this._hslToHex((baseHue + 60) % 360, saturation - 20, lightness - 20);
@@ -501,20 +511,21 @@ const Director = {
                 fog = this._hslToHex((baseHue + 30) % 360, saturation - 10, lightness + 10);
                 break;
 
-            case 'triadic': // 三色系
+            case 'triadic': // 三色系 (高对比度，已优化)
                 const hue2 = (baseHue + 120) % 360;
                 const hue3 = (baseHue + 240) % 360;
                 sky1 = this._hslToHex(baseHue, saturation, lightness + 10);
                 sky2 = this._hslToHex(baseHue, saturation - 10, lightness - 5);
                 ground = this._hslToHex(hue2, saturation - 10, lightness - 15);
                 mountNear = this._hslToHex(hue2, saturation, lightness - 5);
-                mountFar = this._hslToHex(hue3, saturation - 20, lightness);
-                accent = this._hslToHex(hue3, saturation + 20, 80);
+                // 视觉优化：远景山脉使用天空的色相，但降低饱和度，模拟大气透视，避免撞色
+                mountFar = this._hslToHex(baseHue, saturation - 30, lightness + 10);
+                accent = this._hslToHex(hue3, saturation + 20, 80); // 强调色仍然使用第三色
                 sun = this._hslToHex(baseHue, 90, 90);
                 fog = this._hslToHex(hue2, saturation - 30, lightness + 15);
                 break;
 
-            case 'split': // 分裂互补色 (默认)
+            case 'split': // 分裂互补色 (默认，已优化)
             default:
                 sky1 = this._hslToHex(baseHue, saturation, lightness + 10);
                 sky2 = this._hslToHex((baseHue + 20) % 360, saturation, lightness - 10);
@@ -522,10 +533,11 @@ const Director = {
                 const complementHue2 = (baseHue + 210) % 360;
                 ground = this._hslToHex(complementHue1, saturation - 10, lightness - 15);
                 mountNear = this._hslToHex(complementHue1, saturation - 20, lightness - 5);
-                mountFar = this._hslToHex(complementHue2, saturation - 25, lightness + 5);
-                accent = this._hslToHex(baseHue, saturation + 20, lightness + 30);
+                // 视觉优化：远景山脉使用天空的色相，模拟大气透视
+                mountFar = this._hslToHex(baseHue, saturation - 35, lightness + 15);
+                accent = this._hslToHex(complementHue2, saturation + 20, lightness + 30); // 强调色使用另一个互补色
                 sun = this._hslToHex((baseHue + 40) % 360, saturation + 10, 90);
-                fog = this._hslToHex(complementHue2, saturation - 30, lightness + 15);
+                fog = this._hslToHex(complementHue1, saturation - 30, lightness + 15);
                 break;
         }
 
@@ -894,7 +906,8 @@ function updateWeather() {
     state.weatherParticles = state.weatherParticles.filter(p => p.life > 0);
 
     // 2. 获取当前天气类型
-    const theme = THEMES[state.currentThemeIdx];
+    const theme = state.currentTheme; // FIX: Use the current theme object, not the old index.
+    if (!theme) return; // Defensive check for stability during theme transitions.
     const weatherType = theme.weather;
     if (weatherType === 'none') return;
 
