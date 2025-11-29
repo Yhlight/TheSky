@@ -85,7 +85,7 @@ const THEMES = [
     },
     {
         name: { en: "NEON GRID", ch: "霓虹网格" },
-        tags: ['dark', 'city', 'cyberpunk'],
+        tags: ['dark', 'city', 'cyberpunk', 'stormy'],
         sky: ['#000000', '#5e35b1'],
         sun: '#f06292', sunSize: 90, sunY: 0.5,
         mountFar: '#283593', mountNear: '#1a237e',
@@ -111,7 +111,7 @@ const THEMES = [
     },
     {
         name: { en: "VOLCANIC CHASM", ch: "火山裂谷" },
-        tags: ['dark', 'fire', 'jagged', 'hostile'],
+        tags: ['dark', 'fire', 'jagged', 'hostile', 'stormy'],
         sky: ['#210806', '#8c1102'],
         sun: '#ffae3d', sunSize: 150, sunY: 0.6,
         mountFar: '#1a090d', mountNear: '#2b0f15',
@@ -176,7 +176,7 @@ const THEMES = [
     },
     {
         name: { en: "AURORA GLACIER", ch: "极光冰川" },
-        tags: ['cold', 'ice', 'sky', 'winter'],
+        tags: ['cold', 'ice', 'sky', 'winter', 'aurora'],
         sky: ['#0c1440', '#00a896'],
         sun: '#ffffff', sunSize: 40, sunY: 0.2,
         mountFar: '#add8e6', mountNear: '#ffffff',
@@ -374,7 +374,18 @@ const state = {
     npcs: [],
 
     // --- 新增：远景实体状态 ---
-    distantEntities: []
+    distantEntities: [],
+
+    // --- 新增：天气事件状态 ---
+    lightning: {
+        timer: 200,
+        alpha: 0
+    },
+
+    // --- 新增：天幕效果状态 ---
+    aurora: {
+        bands: []
+    }
 };
 
 // --- 新增：创世引擎 - Director模块 ---
@@ -537,6 +548,8 @@ const Director = {
         if (Math.random() < 0.2) newTheme.tags.push('ruins');
         if (Math.random() < 0.1) newTheme.tags.push('magic');
         if (Math.random() < 0.1) newTheme.tags.push('void');
+        if (Math.random() < 0.15 && newTheme.tags.includes('rainy')) newTheme.tags.push('stormy');
+        if (newTheme.tags.includes('cold') && Math.random() < 0.3) newTheme.tags.push('aurora');
 
 
         return newTheme;
@@ -801,6 +814,7 @@ function update(deltaTime, timestamp) {
     // --- 5. 场景演出 (Cinematics) ---
     handleCinematicEvents();
     updateDistantEntities();
+    updateAurora(timestamp);
 }
 
 // --- 新增：场景演出系统 ---
@@ -934,6 +948,23 @@ function updateWeather() {
             p.life = 0;
         }
     });
+
+    // --- 新增：天气事件 - 闪电 ---
+    if (state.lightning.alpha > 0) {
+        state.lightning.alpha -= 0.05; // 闪电淡出
+    }
+
+    if (theme.tags.includes('stormy') && theme.weather === 'rain') {
+        state.lightning.timer--;
+        if (state.lightning.timer <= 0) {
+            state.lightning.alpha = random(0.8, 1.2); // 触发闪电
+            state.lightning.timer = random(120, 500); // 重置计时器
+        }
+    } else {
+        // 如果不是风暴雨天，则确保闪电计时器和效果被重置
+        state.lightning.timer = 200;
+        state.lightning.alpha = 0;
+    }
 }
 
 
@@ -1147,6 +1178,9 @@ function draw(timestamp) {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, h);
 
+    // --- 新增: 1.5 天幕效果 (极光) ---
+    drawAurora(ctx, C);
+
     // --- 2. 太阳/月亮 (Bloom Glow) ---
     ctx.save();
     const sunX = w * 0.8;
@@ -1213,6 +1247,12 @@ function draw(timestamp) {
     // --- 8. 前景粒子 ---
     drawParticles(ctx, C, 1.0); // 前景粒子最清晰
 
+    // --- 新增：8.5 闪电效果 ---
+    if (state.lightning.alpha > 0) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${state.lightning.alpha})`;
+        ctx.fillRect(0, 0, w, h);
+    }
+
     // --- 9. 天气效果 ---
     drawWeather(ctx, C);
 
@@ -1232,6 +1272,73 @@ function drawNpcs(ctx, C) {
         ctx.moveTo(screenX, npc.y);
         ctx.lineTo(screenX - 10, npc.y - 4);
         ctx.lineTo(screenX - 10, npc.y + 4);
+        ctx.closePath();
+        ctx.fill();
+    });
+
+    ctx.restore();
+}
+
+// --- 新增：天幕效果 - 极光系统 ---
+const auroraNoise = new ValueNoise(Math.random());
+
+function updateAurora(timestamp) {
+    const theme = THEMES[state.currentThemeIdx];
+    if (!theme.tags.includes('aurora')) {
+        state.aurora.bands = []; // 如果场景没有aurora标签，则清空
+        return;
+    }
+
+    // 如果是极光场景，但还没有极光带，则初始化
+    if (state.aurora.bands.length === 0) {
+        for (let i = 0; i < 3; i++) { // 创建3条主要光带
+            state.aurora.bands.push({
+                y: random(h * 0.1, h * 0.4),
+                height: random(50, 150),
+                color: [random(180, 220), random(80, 120), random(200, 255)], // 偏绿/蓝/紫
+                segments: 50,
+                noiseSpeed: random(0.05, 0.1)
+            });
+        }
+    }
+
+    // 更新每条光带的形状
+    state.aurora.bands.forEach(band => {
+        for (let i = 0; i <= band.segments; i++) {
+            const noiseX = i * band.noiseSpeed + timestamp / 1000;
+            const displacement = auroraNoise.get(noiseX) * 100 - 50;
+            band.shapePoints = band.shapePoints || [];
+            band.shapePoints[i] = displacement;
+        }
+    });
+}
+
+function drawAurora(ctx, C) {
+    if (state.aurora.bands.length === 0) return;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    state.aurora.bands.forEach(band => {
+        const grad = ctx.createLinearGradient(0, band.y - band.height, 0, band.y + band.height);
+        grad.addColorStop(0, `rgba(${band.color[0]}, ${band.color[1]}, ${band.color[2]}, 0)`);
+        grad.addColorStop(0.5, `rgba(${band.color[0]}, ${band.color[1]}, ${band.color[2]}, 0.15)`);
+        grad.addColorStop(1, `rgba(${band.color[0]}, ${band.color[1]}, ${band.color[2]}, 0)`);
+
+        ctx.fillStyle = grad;
+
+        ctx.beginPath();
+        ctx.moveTo(0, band.y + band.shapePoints[0]);
+
+        for (let i = 1; i <= band.segments; i++) {
+            const x = (w / band.segments) * i;
+            const y = band.y + band.shapePoints[i];
+            ctx.lineTo(x, y);
+        }
+
+        // 封闭路径以填充
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
         ctx.closePath();
         ctx.fill();
     });
@@ -1623,6 +1730,42 @@ function drawGroundAndProps(ctx, C, progress) {
     // --- 从区块绘制地面 ---
     drawTerrainLayerFromChunks(ctx, C.ground, 2, progress); // 2是地面的图层索引
 
+    // --- 新增：地之火 - 脉动的熔岩裂隙 ---
+    const theme = THEMES[state.currentThemeIdx];
+    if (theme.tags.includes('fire')) {
+        const pulseAlpha = 0.6 + Math.sin(timestamp / 400) * 0.4; // 脉动透明度
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = `rgba(255, 172, 61, ${pulseAlpha})`;
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = C.accent;
+
+        // 复用地形绘制逻辑来画裂隙，但使用不同的路径
+        ctx.beginPath();
+        const startChunkId = Math.floor(state.worldScrollX / CFG.CHUNK_WIDTH);
+        const endChunkId = Math.floor((state.worldScrollX + w) / CFG.CHUNK_WIDTH);
+        const step = CFG.CHUNK_WIDTH / CFG.CHUNK_RESOLUTION;
+
+        for (let id = startChunkId; id <= endChunkId; id++) {
+            const chunk = state.terrain.chunks.get(id);
+            if (!chunk) continue;
+            const layerData = chunk.layers[2]; // 地面层
+            if (!layerData) continue;
+            for (let i = 0; i < layerData.length; i++) {
+                const pointData = layerData[i];
+                const screenX = chunk.worldX + i * step - state.worldScrollX;
+                const y = lerp(pointData.y1, pointData.y2, progress);
+                // 稍微偏移裂隙，使其看起来在地面之下
+                ctx.lineTo(screenX, y + 5 + Math.sin(i * 0.5) * 2);
+            }
+        }
+        ctx.stroke();
+        ctx.restore();
+    }
+
+
     // 地面高光
     // (注意: 这个高光效果暂时简化，因为精确重现需要额外计算)
     ctx.strokeStyle = C.accent;
@@ -1653,6 +1796,16 @@ function drawGroundAndProps(ctx, C, progress) {
         ctx.translate(x, groundY);
         ctx.scale(p.scale, p.scale);
         ctx.rotate(p.rot);
+
+        // --- 新增：风之语 - 互动式植物摇曳 ---
+        const theme = THEMES[state.currentThemeIdx];
+        const plantTypes = ['grass', 'branches', 'leaf', 'corals', 'mushrooms'];
+        if (theme.tags.includes('nature') && plantTypes.includes(p.type)) {
+            const windStrength = state.player.velocity.x / CFG.playerMaxSpeed;
+            // 使用 sin 给一个基础的、呼吸般的摆动，再加上速度带来的强烈摆动
+            const swayAngle = Math.sin(timestamp / 500 + p.worldX) * 0.1 + windStrength * -0.5;
+            ctx.rotate(swayAngle);
+        }
 
         ctx.shadowBlur = 10;
         ctx.shadowColor = C.accent;
