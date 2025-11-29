@@ -98,6 +98,42 @@ const THEMES = [
         propType: 'none',
         terrainStyle: 'jagged',
         weather: 'snow'
+    },
+    {
+        name: "VOLCANIC CHASM",
+        sky: ['#210806', '#8c1102'], // 暗红天空
+        sun: '#ffae3d', sunSize: 150, sunY: 0.6, // 熔岩太阳
+        mountFar: '#1a090d', mountNear: '#2b0f15',
+        ground: '#3d141d', // 冷却的火山岩
+        accent: '#ff4d00', // 炽热的橙色
+        fogColor: '#592d1b', fogAlpha: 0.25, // 烟雾
+        propType: 'volcano',
+        terrainStyle: 'jagged',
+        weather: 'embers' // 新天气：余烬
+    },
+    {
+        name: "BIOLUMINESCENT WOODS",
+        sky: ['#010a1c', '#10032e'], // 深邃的午夜蓝
+        sun: '#a9d5ff', sunSize: 40, sunY: 0.15, // 柔和的月光
+        mountFar: '#0b122e', mountNear: '#111942',
+        ground: '#192359', // 幽暗的地面
+        accent: '#00fff0', // 明亮的荧光青色
+        fogColor: '#2a3d8f', fogAlpha: 0.15, // 神秘的薄雾
+        propType: 'mushrooms',
+        terrainStyle: 'mountain',
+        weather: 'spores' // 新天气：荧光孢子
+    },
+    {
+        name: "CITY IN THE CLOUDS",
+        sky: ['#a1c4fd', '#c2e9fb'], // 明亮的天蓝色
+        sun: '#ffd700', sunSize: 100, sunY: 0.3, // 灿烂的金色太阳
+        mountFar: '#e0f2f1', mountNear: '#ffffff', // 远处的云堤
+        ground: '#f0f8ff', // 翻滚的云海
+        accent: '#ffc107', // 建筑的金边
+        fogColor: '#ffffff', fogAlpha: 0.2, // 云雾
+        propType: 'floating_islands',
+        terrainStyle: 'ocean', // 海洋地形模拟云海很合适
+        weather: 'none'
     }
 ];
 
@@ -153,7 +189,10 @@ const state = {
     weatherParticles: [],
 
     // --- 新增：NPC状态 ---
-    npcs: []
+    npcs: [],
+
+    // --- 新增：远景实体状态 ---
+    distantEntities: []
 };
 
 // --- 辅助函数 ---
@@ -384,6 +423,32 @@ function update(deltaTime, timestamp) {
     updateTerrain();
     updateWeather();
     updateNpcs(); // <-- 新增：调用NPC更新逻辑
+
+    // --- 5. 场景演出 (Cinematics) ---
+    handleCinematicEvents();
+    updateDistantEntities();
+}
+
+// --- 新增：场景演出系统 ---
+function handleCinematicEvents() {
+    const T1 = THEMES[state.currentThemeIdx];
+
+    // --- 过渡事件：流星雨 ---
+    // 当从星光虚空过渡时，在过渡中途触发
+    if (T1.name === "STARLIGHT VOID" && state.transitionProgress > 0.4 && state.transitionProgress < 0.6) {
+        if (Math.random() < 0.2) { // 密度控制
+            // 创建一颗流星
+            state.weatherParticles.push({
+                x: random(0, w),
+                y: -20,
+                vx: 15 + random(-5, 5), // 高速
+                vy: 15 + random(-5, 5),
+                life: 1,
+                size: random(1, 2.5),
+                type: 'meteor' // 新的粒子类型
+            });
+        }
+    }
 }
 
 // --- 新增：NPC系统 ---
@@ -412,7 +477,7 @@ function updateWeather() {
     if (weatherType === 'none') return;
 
     // 3. 生成新粒子
-    const density = { rain: 0.5, snow: 0.1, windy: 0.3 };
+    const density = { rain: 0.5, snow: 0.1, windy: 0.3, embers: 0.4, spores: 0.2 };
     if (Math.random() < (density[weatherType] || 0)) {
         const p = {
             x: random(0, w),
@@ -433,6 +498,16 @@ function updateWeather() {
             p.y = random(0, h);
             p.vx = state.player.velocity.x * 1.5 + random(5, 10);
             p.vy = 0;
+        } else if (weatherType === 'embers') {
+            p.y = h + 10; // 从底部飘起
+            p.vx = random(-1, 1) - state.player.velocity.x * 0.05;
+            p.vy = -random(1, 4); // 向上飘
+            p.size = random(1, 3);
+        } else if (weatherType === 'spores') {
+            p.vx = random(-0.5, 0.5) + state.player.velocity.x * 0.02;
+            p.vy = random(0.5, 1.5);
+            p.size = random(2, 5);
+            p.wave = random(0, Math.PI * 2); // 用于实现左右摇摆
         }
         state.weatherParticles.push(p);
     }
@@ -695,6 +770,9 @@ function draw(timestamp) {
     drawTerrainLayerFromChunks(ctx, C.mountFar, 0, progress);
     drawTerrainLayerFromChunks(ctx, C.mountNear, 1, progress);
 
+    // --- 新增: 3.5 远景实体 ---
+    drawDistantEntities(ctx, C);
+
     // --- NEW: 4. 体积雾/柔光层 ---
     ctx.globalCompositeOperation = 'overlay';
     ctx.fillStyle = C.fogColor;
@@ -770,6 +848,36 @@ function drawWeather(ctx, C) {
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p.x - 10, p.y);
+            ctx.stroke();
+        } else if (p.type === 'embers') {
+            ctx.fillStyle = `rgba(255, 172, 61, ${p.life * 0.8})`;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = C.accent;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (p.type === 'spores') {
+            p.wave += 0.05;
+            const xOffset = Math.sin(p.wave) * 5;
+            ctx.fillStyle = `rgba(0, 255, 240, ${p.life * 0.7})`;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = C.accent;
+            ctx.beginPath();
+            ctx.arc(p.x + xOffset, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (p.type === 'meteor') {
+            const tailLength = p.size * 20;
+            const grad = ctx.createLinearGradient(p.x, p.y, p.x - p.vx * tailLength, p.y - p.vy * tailLength);
+            grad.addColorStop(0, `rgba(255, 255, 255, ${p.life})`);
+            grad.addColorStop(1, 'transparent');
+
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = p.size;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = 'white';
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x - p.vx * tailLength, p.y - p.vy * tailLength);
             ctx.stroke();
         }
     });
@@ -859,6 +967,63 @@ const PROP_DRAWERS = {
         const width = random(20, 50);
         const height = random(80, 250);
         ctx.fillRect(-width / 2, -height, width, height);
+    },
+    'volcano': (ctx, C, p) => {
+        // 绘制一个小型、风格化的火山
+        ctx.fillStyle = '#1a090d'; // 火山岩的深色
+        ctx.beginPath();
+        ctx.moveTo(-20 * p.scale, 0);
+        ctx.lineTo(20 * p.scale, 0);
+        ctx.lineTo(10 * p.scale, -30 * p.scale);
+        ctx.lineTo(-10 * p.scale, -30 * p.scale);
+        ctx.closePath();
+        ctx.fill();
+
+        // 绘制火山口的熔岩
+        ctx.fillStyle = C.accent;
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.ellipse(0, -28 * p.scale, 8 * p.scale, 3 * p.scale, 0, 0, Math.PI * 2);
+        ctx.fill();
+    },
+    'mushrooms': (ctx, C, p) => {
+        // 绘制几颗发光的蘑菇
+        ctx.globalAlpha = 0.9;
+        const mushroomCount = Math.floor(random(1, 4));
+        for (let i = 0; i < mushroomCount; i++) {
+            const xOffset = random(-15, 15) * p.scale;
+            const yOffset = -random(5, 20) * p.scale;
+            const height = random(10, 25) * p.scale;
+            const capRadius = random(5, 12) * p.scale;
+
+            // 菌柄
+            ctx.strokeStyle = '#a9d5ff'; // 用月光色
+            ctx.lineWidth = 2 * p.scale;
+            ctx.beginPath();
+            ctx.moveTo(xOffset, 0);
+            ctx.lineTo(xOffset, yOffset - height);
+            ctx.stroke();
+
+            // 菌盖
+            ctx.fillStyle = C.accent;
+            ctx.beginPath();
+            ctx.arc(xOffset, yOffset - height, capRadius, Math.PI, 0);
+            ctx.fill();
+        }
+    },
+    'floating_islands': (ctx, C, p) => {
+        // 绘制一个带有植被的浮空小岛
+        ctx.fillStyle = C.mountFar; // 岛屿底部颜色
+        ctx.globalAlpha = 0.95;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 30 * p.scale, 15 * p.scale, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 岛屿顶部（云层或植被）
+        ctx.fillStyle = C.ground;
+        ctx.beginPath();
+        ctx.ellipse(0, -10 * p.scale, 25 * p.scale, 10 * p.scale, 0, 0, Math.PI * 2);
+        ctx.fill();
     }
 };
 
@@ -1002,3 +1167,95 @@ function initUI() {
 initUI();
 lastTimestamp = performance.now();
 animationFrameId = requestAnimationFrame(gameLoop);
+
+// --- 新增：远景实体系统实现 ---
+function updateDistantEntities() {
+    // 1. 清理生命周期结束的实体
+    state.distantEntities = state.distantEntities.filter(e => e.life > 0 && e.x > -200);
+
+    // 2. 根据当前场景生成新实体
+    const theme = THEMES[state.currentThemeIdx];
+
+    if (theme.name === "CITY IN THE CLOUDS" && Math.random() < 0.01 && state.distantEntities.length < 3) {
+        state.distantEntities.push({
+            type: 'fleet',
+            x: w + 150,
+            y: random(h * 0.2, h * 0.5),
+            vx: -random(0.2, 0.5), // 非常缓慢
+            life: 1, // 持续存在，直到移出屏幕
+            scale: random(0.5, 1.2)
+        });
+    }
+
+    if (theme.name === "VOLCANIC CHASM" && Math.random() < 0.02) {
+        state.distantEntities.push({
+            type: 'geyser',
+            x: random(0, w),
+            y: h, // 从底部开始
+            vy: -random(3, 6),
+            life: random(0.1, 0.3), // 短暂喷发
+            maxHeight: random(h * 0.4, h * 0.7),
+            particles: []
+        });
+    }
+
+    // 3. 更新实体状态
+    state.distantEntities.forEach(e => {
+        if (e.type === 'fleet') {
+            e.x += e.vx;
+        } else if (e.type === 'geyser') {
+            if (e.y > e.maxHeight) {
+                e.y += e.vy;
+                // 生成粒子
+                if (Math.random() < 0.5) {
+                    e.particles.push({ x: e.x + random(-10, 10), y: e.y, life: 1 });
+                }
+            }
+            e.life -= 0.005;
+
+            // 更新粒子
+            e.particles = e.particles.filter(p => p.life > 0);
+            e.particles.forEach(p => {
+                p.y += 1; // 粒子下落
+                p.life -= 0.02;
+            });
+        }
+    });
+}
+
+function drawDistantEntities(ctx, C) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over'; // 确保正常绘制
+
+    state.distantEntities.forEach(e => {
+        ctx.globalAlpha = 0.5 * e.life; // 远景实体都比较透明
+
+        switch(e.type) {
+            case 'fleet':
+                ctx.fillStyle = '#ffffff'; // 白色船体
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = C.sun;
+
+                // 绘制一个风格化的飞艇形状
+                ctx.beginPath();
+                ctx.ellipse(e.x, e.y, 80 * e.scale, 20 * e.scale, 0, 0, Math.PI * 2);
+                ctx.fill();
+                break;
+
+            case 'geyser':
+                // 绘制岩浆粒子
+                ctx.fillStyle = C.accent;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = C.accent;
+                e.particles.forEach(p => {
+                    ctx.globalAlpha = 0.8 * p.life;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, random(2, 5), 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                break;
+        }
+    });
+
+    ctx.restore();
+}
