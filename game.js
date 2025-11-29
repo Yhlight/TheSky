@@ -7,6 +7,7 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d', { alpha: false });
 const uiName = document.getElementById('scene-name');
 
+let UILang = 'ch'; // 'en' or 'ch'
 let w, h;
 let animationFrameId = null; // 用于暂停/恢复
 let lastTimestamp = 0;
@@ -16,12 +17,12 @@ let isPaused = false;
 // 颜色格式为 HEX
 const THEMES = [
     {
-        name: "SPRING AWAKENING",
+        name: { en: "SPRING AWAKENING", ch: "春日初醒" },
         tags: ['bright', 'nature', 'mountain', 'spring'],
-        sky: ['#64b5f6', '#e91e63'], // 天空蓝更柔和
-        sun: '#fff9c4', sunSize: 70, sunY: 0.3, // 太阳淡黄
+        sky: ['#64b5f6', '#e91e63'],
+        sun: '#fff9c4', sunSize: 70, sunY: 0.3,
         mountFar: '#a5d6a7', mountNear: '#81c784',
-        ground: '#66bb6a', // 更鲜嫩的绿色
+        ground: '#66bb6a',
         accent: '#ffffff',
         fogColor: '#f8bbd0', fogAlpha: 0.1,
         propType: 'grass',
@@ -29,10 +30,10 @@ const THEMES = [
         weather: 'rain'
     },
     {
-        name: "GOLDEN RADIANCE",
+        name: { en: "GOLDEN RADIANCE", ch: "金色光辉" },
         tags: ['bright', 'ruins', 'mountain', 'dry'],
         sky: ['#ffb74d', '#ff9800'],
-        sun: '#fffde7', sunSize: 120, sunY: 0.4, // 更亮更耀眼的太阳
+        sun: '#fffde7', sunSize: 120, sunY: 0.4,
         mountFar: '#bcaaa4', mountNear: '#8d6e63',
         ground: '#795548',
         accent: '#fff3e0',
@@ -42,20 +43,20 @@ const THEMES = [
         weather: 'windy'
     },
     {
-        name: "STARLIGHT VOID",
+        name: { en: "STARLIGHT VOID", ch: "星光虚空" },
         tags: ['dark', 'space', 'crystals', 'void'],
-        sky: ['#00003f', '#2c2c54'], // 更深邃的太空
-        sun: '#ffffff', sunSize: 30, sunY: 0.25, // 月亮/远星
+        sky: ['#00003f', '#2c2c54'],
+        sun: '#ffffff', sunSize: 30, sunY: 0.25,
         mountFar: '#303f9f', mountNear: '#3f51b5',
         ground: '#1a237e',
-        accent: '#e3f2fd', // 更亮的星星
+        accent: '#e3f2fd',
         fogColor: '#5c6bc0', fogAlpha: 0.1,
         propType: 'crystals',
         terrainStyle: 'jagged',
         weather: 'none'
     },
     {
-        name: "AUTUMN EMBRACE",
+        name: { en: "AUTUMN EMBRACE", ch: "秋日之拥" },
         tags: ['warm', 'nature', 'mountain', 'windy'],
         sky: ['#ffab91', '#e65100'],
         sun: '#fff3e0', sunSize: 70, sunY: 0.35,
@@ -68,12 +69,12 @@ const THEMES = [
         weather: 'windy'
     },
     {
-        name: "AZURE DREAM",
+        name: { en: "AZURE DREAM", ch: "蔚蓝之梦" },
         tags: ['bright', 'ocean', 'calm'],
-        sky: ['#4dd0e1', '#0097a7'], // 更青色的天空
+        sky: ['#4dd0e1', '#0097a7'],
         sun: '#e0f7fa', sunSize: 80, sunY: 0.2,
         mountFar: '#b2ebf2', mountNear: '#80deea',
-        ground: '#006064', // 更深邃的水面
+        ground: '#006064',
         accent: '#ffffff',
         fogColor: '#80deea', fogAlpha: 0.2,
         propType: 'bubbles',
@@ -81,181 +82,181 @@ const THEMES = [
         weather: 'none'
     },
     {
-        name: "NEON GRID",
+        name: { en: "NEON GRID", ch: "霓虹网格" },
         tags: ['dark', 'city', 'cyberpunk'],
         sky: ['#000000', '#5e35b1'],
         sun: '#f06292', sunSize: 90, sunY: 0.5,
-        mountFar: '#283593', mountNear: '#1a237e', // 更深的背景
+        mountFar: '#283593', mountNear: '#1a237e',
         ground: '#12005e',
-        accent: '#ff4081', // 更亮的霓虹
+        accent: '#ff4081',
         fogColor: '#3949ab', fogAlpha: 0.15,
         propType: 'skyscrapers',
         terrainStyle: 'cityscape',
         weather: 'rain'
     },
     {
-        name: "FROZEN WASTELAND",
+        name: { en: "FROZEN WASTELAND", ch: "冰封废土" },
         tags: ['cold', 'ice', 'jagged', 'desolate'],
-        sky: ['#b0bec5', '#78909c'], // 更冷的灰色
+        sky: ['#b0bec5', '#78909c'],
         sun: '#f5f5f5', sunSize: 50, sunY: 0.2,
         mountFar: '#cfd8dc', mountNear: '#b0bec5',
         ground: '#eceff1',
-        accent: '#ffffff', // 冰晶反光
-        fogColor: '#cfd8dc', fogAlpha: 0.35, // 更浓的雾
+        accent: '#ffffff',
+        fogColor: '#cfd8dc', fogAlpha: 0.35,
         propType: 'none',
         terrainStyle: 'jagged',
         weather: 'snow'
     },
     {
-        name: "VOLCANIC CHASM",
+        name: { en: "VOLCANIC CHASM", ch: "火山裂谷" },
         tags: ['dark', 'fire', 'jagged', 'hostile'],
-        sky: ['#210806', '#8c1102'], // 暗红天空
-        sun: '#ffae3d', sunSize: 150, sunY: 0.6, // 熔岩太阳
+        sky: ['#210806', '#8c1102'],
+        sun: '#ffae3d', sunSize: 150, sunY: 0.6,
         mountFar: '#1a090d', mountNear: '#2b0f15',
-        ground: '#3d141d', // 冷却的火山岩
-        accent: '#ff4d00', // 炽热的橙色
-        fogColor: '#592d1b', fogAlpha: 0.25, // 烟雾
+        ground: '#3d141d',
+        accent: '#ff4d00',
+        fogColor: '#592d1b', fogAlpha: 0.25,
         propType: 'volcano',
         terrainStyle: 'jagged',
-        weather: 'embers' // 新天气：余烬
+        weather: 'embers'
     },
     {
-        name: "BIOLUMINESCENT WOODS",
+        name: { en: "BIOLUMINESCENT WOODS", ch: "荧光森林" },
         tags: ['dark', 'nature', 'forest', 'magic'],
-        sky: ['#010a1c', '#10032e'], // 深邃的午夜蓝
-        sun: '#a9d5ff', sunSize: 40, sunY: 0.15, // 柔和的月光
+        sky: ['#010a1c', '#10032e'],
+        sun: '#a9d5ff', sunSize: 40, sunY: 0.15,
         mountFar: '#0b122e', mountNear: '#111942',
-        ground: '#192359', // 幽暗的地面
-        accent: '#00fff0', // 明亮的荧光青色
-        fogColor: '#2a3d8f', fogAlpha: 0.15, // 神秘的薄雾
+        ground: '#192359',
+        accent: '#00fff0',
+        fogColor: '#2a3d8f', fogAlpha: 0.15,
         propType: 'mushrooms',
         terrainStyle: 'mountain',
-        weather: 'spores' // 新天气：荧光孢子
+        weather: 'spores'
     },
     {
-        name: "CITY IN THE CLOUDS",
+        name: { en: "CITY IN THE CLOUDS", ch: "云端之城" },
         tags: ['bright', 'sky', 'city', 'heavenly'],
-        sky: ['#a1c4fd', '#c2e9fb'], // 明亮的天蓝色
-        sun: '#ffd700', sunSize: 100, sunY: 0.3, // 灿烂的金色太阳
-        mountFar: '#e0f2f1', mountNear: '#ffffff', // 远处的云堤
-        ground: '#f0f8ff', // 翻滚的云海
-        accent: '#ffc107', // 建筑的金边
-        fogColor: '#ffffff', fogAlpha: 0.2, // 云雾
+        sky: ['#a1c4fd', '#c2e9fb'],
+        sun: '#ffd700', sunSize: 100, sunY: 0.3,
+        mountFar: '#e0f2f1', mountNear: '#ffffff',
+        ground: '#f0f8ff',
+        accent: '#ffc107',
+        fogColor: '#ffffff', fogAlpha: 0.2,
         propType: 'floating_islands',
-        terrainStyle: 'ocean', // 海洋地形模拟云海很合适
+        terrainStyle: 'ocean',
         weather: 'none'
     },
     {
-        name: "GIANT TREE FOREST",
+        name: { en: "GIANT TREE FOREST", ch: "巨木之森" },
         tags: ['nature', 'forest', 'calm', 'giant'],
-        sky: ['#1a3a3a', '#005a5a'], // 深邃的森林绿
-        sun: '#f0fff0', sunSize: 60, sunY: 0.1, // 透过枝叶的柔光
+        sky: ['#1a3a3a', '#005a5a'],
+        sun: '#f0fff0', sunSize: 60, sunY: 0.1,
         mountFar: '#002a2a', mountNear: '#0f3a3a',
-        ground: '#1d4a4a', // 森林地面
-        accent: '#88ff88', // 生命的荧光绿
+        ground: '#1d4a4a',
+        accent: '#88ff88',
         fogColor: '#3a7a7a', fogAlpha: 0.2,
         propType: 'branches',
         terrainStyle: 'mountain',
-        weather: 'petals' // 飘落的花瓣/叶子
+        weather: 'petals'
     },
     {
-        name: "CRYSTAL CAVES",
+        name: { en: "CRYSTAL CAVES", ch: "水晶洞窟" },
         tags: ['dark', 'cave', 'crystals', 'magic'],
-        sky: ['#1e1a3d', '#3e2a6d'], // 洞窟的深紫色
-        sun: '#ffffff', sunSize: 10, sunY: 0.5, // 远处的光源
+        sky: ['#1e1a3d', '#3e2a6d'],
+        sun: '#ffffff', sunSize: 10, sunY: 0.5,
         mountFar: '#2e2a5d', mountNear: '#4e3a8d',
-        ground: '#5e4a9d', // 水晶地面
-        accent: '#ffacff', // 水晶的粉色光辉
+        ground: '#5e4a9d',
+        accent: '#ffacff',
         fogColor: '#6e5a9d', fogAlpha: 0.15,
         propType: 'crystal_clusters',
         terrainStyle: 'jagged',
-        weather: 'energy_motes' // 能量光点
+        weather: 'energy_motes'
     },
     {
-        name: "AURORA GLACIER",
+        name: { en: "AURORA GLACIER", ch: "极光冰川" },
         tags: ['cold', 'ice', 'sky', 'winter'],
-        sky: ['#0c1440', '#00a896'], // 极光的混合色
-        sun: '#ffffff', sunSize: 40, sunY: 0.2, // 明亮的月亮
+        sky: ['#0c1440', '#00a896'],
+        sun: '#ffffff', sunSize: 40, sunY: 0.2,
         mountFar: '#add8e6', mountNear: '#ffffff',
-        ground: '#d4f1f9', // 冰川表面
-        accent: '#98fb98', // 极光的淡绿色
+        ground: '#d4f1f9',
+        accent: '#98fb98',
         fogColor: '#a0d8ef', fogAlpha: 0.3,
         propType: 'icebergs',
         terrainStyle: 'jagged',
-        weather: 'snow' // 可以复用雪花天气
+        weather: 'snow'
     },
     {
-        name: "CORAL KINGDOM",
+        name: { en: "CORAL KINGDOM", ch: "珊瑚王国" },
         tags: ['ocean', 'nature', 'calm', 'colorful'],
-        sky: ['#003973', '#005f9e'], // 深海蓝
-        sun: '#ffffff', sunSize: 100, sunY: 0.1, // 来自水面的光线
+        sky: ['#003973', '#005f9e'],
+        sun: '#ffffff', sunSize: 100, sunY: 0.1,
         mountFar: '#004983', mountNear: '#006fae',
-        ground: '#008fce', // 沙地
-        accent: '#ff6f61', // 珊瑚的鲜艳颜色
+        ground: '#008fce',
+        accent: '#ff6f61',
         fogColor: '#007fbe', fogAlpha: 0.25,
         propType: 'corals',
         terrainStyle: 'ocean',
-        weather: 'bubbles' // 复用气泡
+        weather: 'bubbles'
     },
     {
-        name: "HANGING GARDENS",
+        name: { en: "HANGING GARDENS", ch: "空中花园" },
         tags: ['bright', 'ruins', 'nature', 'heavenly'],
-        sky: ['#fdebd0', '#f5b041'], // 温暖的晨光
+        sky: ['#fdebd0', '#f5b041'],
         sun: '#fff5e1', sunSize: 120, sunY: 0.2,
         mountFar: '#d5dbdb', mountNear: '#abb2b9',
-        ground: '#a3e4d7', // 青翠的植被
-        accent: '#3498db', // 流水和瀑布的蓝色
+        ground: '#a3e4d7',
+        accent: '#3498db',
         fogColor: '#fef9e7', fogAlpha: 0.1,
         propType: 'ancient_pillars',
         terrainStyle: 'mountain',
         weather: 'waterfall_spray'
     },
     {
-        name: "DESERT COLOSSUS",
+        name: { en: "DESERT COLOSSUS", ch: "沙漠巨像" },
         tags: ['dry', 'ruins', 'giant', 'desolate'],
-        sky: ['#f5cba7', '#d35400'], // 沙漠的日落
+        sky: ['#f5cba7', '#d35400'],
         sun: '#ffffff', sunSize: 90, sunY: 0.4,
         mountFar: '#e59866', mountNear: '#af601a',
-        ground: '#d39b5b', // 无垠的沙丘
-        accent: '#fdebd0', // 被照亮的高光
+        ground: '#d39b5b',
+        accent: '#fdebd0',
         fogColor: '#f5cba7', fogAlpha: 0.2,
         propType: 'colossus_parts',
         terrainStyle: 'mountain',
         weather: 'sandstorm'
     },
     {
-        name: "STEAMPUNK METROPOLIS",
+        name: { en: "STEAMPUNK METROPOLIS", ch: "蒸汽都市" },
         tags: ['dark', 'city', 'industrial', 'steampunk'],
-        sky: ['#4a4a4a', '#2c3e50'], // 工业烟雾
-        sun: '#ffc107', sunSize: 70, sunY: 0.3, // 齿轮太阳
+        sky: ['#4a4a4a', '#2c3e50'],
+        sun: '#ffc107', sunSize: 70, sunY: 0.3,
         mountFar: '#566573', mountNear: '#2c3e50',
-        ground: '#839192', // 金属地面
-        accent: '#e67e22', // 黄铜的光泽
+        ground: '#839192',
+        accent: '#e67e22',
         fogColor: '#99a3a4', fogAlpha: 0.3,
         propType: 'gears_and_pipes',
         terrainStyle: 'cityscape',
         weather: 'steam'
     },
     {
-        name: "SILENT LIBRARY",
+        name: { en: "SILENT LIBRARY", ch: "沉寂书库" },
         tags: ['dark', 'ruins', 'magic', 'indoor'],
-        sky: ['#2c2c54', '#1a1a3a'], // 深邃的室内感
-        sun: '#fffacd', sunSize: 50, sunY: 0.1, // 魔法灯光
+        sky: ['#2c2c54', '#1a1a3a'],
+        sun: '#fffacd', sunSize: 50, sunY: 0.1,
         mountFar: '#3c3c64', mountNear: '#4c4c7a',
-        ground: '#5c5c8a', // 书架的阴影
-        accent: '#ffd700', // 金色的书页
+        ground: '#5c5c8a',
+        accent: '#ffd700',
         fogColor: '#4c4c7a', fogAlpha: 0.25,
         propType: 'flying_books',
-        terrainStyle: 'cityscape', // 模拟书架墙
+        terrainStyle: 'cityscape',
         weather: 'glowing_dust'
     },
     {
-        name: "WORLD OF REFLECTIONS",
+        name: { en: "WORLD OF REFLECTIONS", ch: "倒影之境" },
         tags: ['bright', 'abstract', 'calm', 'surreal'],
-        sky: ['#eaf2f8', '#aed6f1'], // 明亮、干净的颜色
+        sky: ['#eaf2f8', '#aed6f1'],
         sun: '#ffffff', sunSize: 200, sunY: 0.5,
         mountFar: '#d6eaf8', mountNear: '#aed6f1',
-        ground: '#85c1e9', // 镜面/水面
+        ground: '#85c1e9',
         accent: '#ffffff',
         fogColor: '#eaf2f8', fogAlpha: 0.1,
         propType: 'reflection_shards',
@@ -263,25 +264,25 @@ const THEMES = [
         weather: 'none'
     },
     {
-        name: "PLAYGROUND OF GIANTS",
+        name: { en: "PLAYGROUND OF GIANTS", ch: "巨人之憩" },
         tags: ['bright', 'giant', 'surreal', 'playful'],
-        sky: ['#fcf3cf', '#f7dc6f'], // 孩童般的暖黄色
+        sky: ['#fcf3cf', '#f7dc6f'],
         sun: '#fdfefe', sunSize: 150, sunY: 0.3,
         mountFar: '#fad7a0', mountNear: '#f5b041',
-        ground: '#f8c471', // 温暖的地面
-        accent: '#e74c3c', // 玩具的鲜艳颜色
+        ground: '#f8c471',
+        accent: '#e74c3c',
         fogColor: '#fcf3cf', fogAlpha: 0.2,
         propType: 'giant_toys',
         terrainStyle: 'mountain',
         weather: 'none'
     },
     {
-        name: "CORRIDOR OF MEMORIES",
+        name: { en: "CORRIDOR OF MEMORIES", ch: "记忆回廊" },
         tags: ['monochrome', 'abstract', 'surreal', 'memory'],
-        sky: ['#d5d8dc', '#566573'], // 褪色的黑白
-        sun: '#ffffff', sunSize: 80, sunY: 0.2, // 模糊的光源
+        sky: ['#d5d8dc', '#566573'],
+        sun: '#ffffff', sunSize: 80, sunY: 0.2,
         mountFar: '#abb2b9', mountNear: '#808b96',
-        ground: '#566573', // 灰色的地面
+        ground: '#566573',
         accent: '#ffffff',
         fogColor: '#d5d8dc', fogAlpha: 0.3,
         propType: 'memory_fragments',
@@ -289,27 +290,27 @@ const THEMES = [
         weather: 'none'
     },
     {
-        name: "STRING THEORY SEA",
+        name: { en: "STRING THEORY SEA", ch: "无垠弦论" },
         tags: ['dark', 'void', 'abstract', 'sci-fi'],
-        sky: ['#000000', '#1c0a1c'], // 纯黑的虚空
-        sun: '#ffffff', sunSize: 5, sunY: 0.5, // 奇点
+        sky: ['#000000', '#1c0a1c'],
+        sun: '#ffffff', sunSize: 5, sunY: 0.5,
         mountFar: '#1c0a1c', mountNear: '#2c1a2c',
-        ground: '#3c2a3c', // 无底的海洋
-        accent: '#ff00ff', // 能量弦的颜色
+        ground: '#3c2a3c',
+        accent: '#ff00ff',
         fogColor: '#2c1a2c', fogAlpha: 0.1,
         propType: 'energy_strings',
         terrainStyle: 'ocean',
         weather: 'none'
     },
     {
-        name: "SHATTERED REALITY",
+        name: { en: "SHATTERED REALITY", ch: "碎裂现实" },
         tags: ['abstract', 'glitch', 'surreal', 'hostile'],
-        sky: ['#ffffff', '#ffffff'], // 纯白，无渐变
-        sun: '#000000', sunSize: 50, sunY: 0.5, // 黑洞太阳
+        sky: ['#ffffff', '#ffffff'],
+        sun: '#000000', sunSize: 50, sunY: 0.5,
         mountFar: '#cccccc', mountNear: '#999999',
-        ground: '#666666', // 碎裂的地面
-        accent: '#ff0000', // 错误的颜色
-        fogColor: '#ffffff', fogAlpha: 0.0, // 无雾
+        ground: '#666666',
+        accent: '#ff0000',
+        fogColor: '#ffffff', fogAlpha: 0.0,
         propType: 'glitches',
         terrainStyle: 'jagged',
         weather: 'none'
@@ -381,8 +382,20 @@ const Director = {
 
     // 用于程序化生成名称的词库
     nameParts: {
-        adjectives: ["Crimson", "Golden", "Azure", "Verdant", "Starlight", "Whispering", "Forgotten", "Sunken", "Crystal", "Obsidian"],
-        nouns: ["Expanse", "Chasm", "Citadel", "Sanctuary", "Wastes", "Garden", "Void", "Kingdom", "Glacier", "Sea"]
+        adjectives: [
+            { en: "Crimson", ch: "猩红" }, { en: "Golden", ch: "金色" },
+            { en: "Azure", ch: "蔚蓝" }, { en: "Verdant", ch: "翠绿" },
+            { en: "Starlight", ch: "星光" }, { en: "Whispering", ch: "低语" },
+            { en: "Forgotten", ch: "遗忘" }, { en: "Sunken", ch: "沉没" },
+            { en: "Crystal", ch: "水晶" }, { en: "Obsidian", ch: "黑曜石" }
+        ],
+        nouns: [
+            { en: "Expanse", ch: "苍穹" }, { en: "Chasm", ch: "峡谷" },
+            { en: "Citadel", ch: "堡垒" }, { en: "Sanctuary", ch: "圣殿" },
+            { en: "Wastes", ch: "废土" }, { en: "Garden", ch: "花园" },
+            { en: "Void", ch: "虚空" }, { en: "Kingdom", ch: "王国" },
+            { en: "Glacier", ch: "冰川" }, { en: "Sea", ch: "之海" }
+        ]
     },
 
     // 初始化 Director，准备好生成逻辑
@@ -391,11 +404,14 @@ const Director = {
         console.log("Director initialized. Ready to generate infinite worlds.");
     },
 
-    // 1.3 名称生成器
+    // 1.3 名称生成器 (已更新为双语)
     generateName: function() {
         const adj = this.nameParts.adjectives[Math.floor(Math.random() * this.nameParts.adjectives.length)];
         const noun = this.nameParts.nouns[Math.floor(Math.random() * this.nameParts.nouns.length)];
-        return `${adj.toUpperCase()} ${noun.toUpperCase()}`;
+        return {
+            en: `${adj.en.toUpperCase()} ${noun.en.toUpperCase()}`,
+            ch: `${adj.ch}${noun.ch}`
+        };
     },
 
     // HSL转HEX的辅助函数
@@ -698,7 +714,7 @@ function update(deltaTime, timestamp) {
 
     // 检查是否应该开始UI淡出
     if (state.transitionTimer >= TRANSITION_START_TIME && !state.isFadingOut) {
-        uiName.style.opacity = 0;
+        uiName.classList.remove('visible');
         state.isFadingOut = true;
     }
 
@@ -725,8 +741,8 @@ function update(deltaTime, timestamp) {
         state.nextThemeIdx = (state.currentThemeIdx === 0) ? 1 : 0;
 
         // 更新文本并淡入
-        uiName.innerText = THEMES[state.currentThemeIdx].name;
-        uiName.style.opacity = 0.9;
+        uiName.innerText = THEMES[state.currentThemeIdx].name[UILang];
+        uiName.classList.add('visible');
         state.isFadingOut = false; // 重置淡出状态
         state.transitionProgress = 0; // 重置进度
     }
@@ -1688,8 +1704,8 @@ function initUI() {
     state.currentThemeIdx = 0;
     state.nextThemeIdx = 1;
 
-    uiName.innerText = THEMES[state.currentThemeIdx].name;
-    uiName.style.opacity = 0.9;
+    uiName.innerText = THEMES[state.currentThemeIdx].name[UILang];
+    uiName.classList.add('visible');
 }
 
 // 启动循环

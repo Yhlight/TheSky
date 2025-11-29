@@ -48,12 +48,19 @@ canvas {
 }
 
 h1 {
-    transition: opacity 0.5s ease-in-out;
+    opacity: 0;
+    transform: translateY(15px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
     font-weight: 200;
     letter-spacing: 12px;
     font-size: 1.5rem;
     text-transform: uppercase;
     text-shadow: 0 0 15px rgba(255, 255, 255, 0.7);
+}
+
+h1.visible {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .guide {
