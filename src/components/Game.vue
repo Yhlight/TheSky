@@ -1801,7 +1801,7 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
             } else {
                 // If we can't interpolate, it's better to not draw the prop for a frame
                 // than to have it visually jump. This can happen at the very edge of terrain generation.
-                continue;
+                return;
             }
         }
 
