@@ -988,6 +988,23 @@ function updateNpcs() {
 }
 
 function updateWeather() {
+    // 4. 更新粒子位置
+    state.weatherParticles.forEach(p => {
+        p.x -= p.vx;
+        p.y += p.vy;
+        p.life -= 0.005;
+
+        // 雪花左右飘动
+        if (p.type === 'snow') {
+            p.x += Math.sin(p.y / 50);
+        }
+
+        // 回收离开屏幕的粒子
+        if (p.y > h + 20 || p.x < -20) {
+            p.life = 0;
+        }
+    });
+
     // 1. 清理死去的粒子
     state.weatherParticles = state.weatherParticles.filter(p => p.life > 0);
 
@@ -1065,23 +1082,6 @@ function updateWeather() {
         }
         state.weatherParticles.push(p);
     }
-
-    // 4. 更新粒子位置
-    state.weatherParticles.forEach(p => {
-        p.x -= p.vx;
-        p.y += p.vy;
-        p.life -= 0.005;
-
-        // 雪花左右飘动
-        if (p.type === 'snow') {
-            p.x += Math.sin(p.y / 50);
-        }
-
-        // 回收离开屏幕的粒子
-        if (p.y > h + 20 || p.x < -20) {
-            p.life = 0;
-        }
-    });
 
     // --- 新增：天气事件 - 闪电 ---
     if (state.lightning.alpha > 0) {
@@ -1822,9 +1822,12 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
                 const y1 = lerp(pointData1.y1, pointData1.y2, progress);
                 const y2 = lerp(pointData2.y1, pointData2.y2, progress);
                 groundY = lerp(y1, y2, t);
-            } else {
+            } else if (pointData1) {
                 // 如果插值所需的点（特别是下一个块的第一个点）还未生成，
-                // 则跳过这一帧的绘制，以避免抽搐。
+                // 则使用前一个点的高度作为备用值，而不是跳过绘制，防止抽搐。
+                groundY = lerp(pointData1.y1, pointData1.y2, progress);
+            } else {
+                // 如果连第一个点都找不到，则跳过绘制
                 return;
             }
         }
