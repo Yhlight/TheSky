@@ -870,8 +870,8 @@ function draw(timestamp) {
     let pulseFactor = 1.0;
 
     ctx.globalCompositeOperation = 'screen';
-    const safeR0 = Math.max(1, (C.sunSize / 2) * pulseFactor);
-    const safeR1 = Math.max(2, (C.sunSize * 5) * pulseFactor);
+    const safeR0 = Math.max(1, (C.sunSize / 2));
+    const safeR1 = Math.max(2, (C.sunSize * 5));
     const sunGrad = ctx.createRadialGradient(sunX, sunY, safeR0, sunX, sunY, safeR1);
     sunGrad.addColorStop(0, C.sun);
     sunGrad.addColorStop(1, 'transparent');
@@ -1798,9 +1798,13 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
                 const y1 = lerp(pointData1.y1, pointData1.y2, progress);
                 const y2 = lerp(pointData2.y1, pointData2.y2, progress);
                 groundY = lerp(y1, y2, t);
+            } else if (pointData1) {
+                // Fallback: If we don't have the second point for interpolation,
+                // just use the first point. This avoids flickering.
+                groundY = lerp(pointData1.y1, pointData1.y2, progress);
             } else {
-                // If we can't interpolate, it's better to not draw the prop for a frame
-                // than to have it visually jump. This can happen at the very edge of terrain generation.
+                // If we can't even get the first point, it's safer not to draw.
+                // This should be a very rare case.
                 return;
             }
         }
