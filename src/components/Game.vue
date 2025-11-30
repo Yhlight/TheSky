@@ -1813,18 +1813,18 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
                 }
             }
 
+            // [最终修复] 只有当插值所需的所有数据点都可用时才进行计算和绘制。
+            // 这可以防止在地形块生成边缘因使用回退值（fallback value）而导致的视觉“跳跃”。
+            // 鉴于地形数据本身现在是连续的（通过烘焙），即使一个道具消失一帧，
+            // 它在下一帧重新出现时也会处于一个平滑、正确的位置上。
             if (pointData1 && pointData2) {
                 const t = pointIndexFloat - index1;
                 const y1 = lerp(pointData1.y1, pointData1.y2, progress);
                 const y2 = lerp(pointData2.y1, pointData2.y2, progress);
                 groundY = lerp(y1, y2, t);
-            } else if (pointData1) {
-                // Fallback: If we don't have the second point for interpolation,
-                // just use the first point. This avoids flickering.
-                groundY = lerp(pointData1.y1, pointData1.y2, progress);
             } else {
-                // If we can't even get the first point, it's safer not to draw.
-                // This should be a very rare case.
+                // 如果插值所需的点（特别是下一个块的第一个点）还未生成，
+                // 则跳过这一帧的绘制，以避免抽搐。
                 return;
             }
         }
