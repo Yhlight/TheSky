@@ -811,6 +811,26 @@ function update(deltaTime, timestamp) {
         state.currentTheme = state.nextTheme;
         state.nextTheme = Director.generateNextTheme();
 
+        // *** 新增：地形烘焙逻辑 ***
+        // 遍历所有现存的区块，将 y2 的值烘焙到 y1，并为新的 nextTheme 计算新的 y2
+        const newNextTheme = state.nextTheme;
+        state.terrain.chunks.forEach(chunk => {
+            const step = CFG.CHUNK_WIDTH / CFG.CHUNK_RESOLUTION;
+            for (let i = 0; i < chunk.layers.length; i++) {
+                const prop = getTerrainLayerProperties(i);
+                for (let j = 0; j < chunk.layers[i].length; j++) {
+                    const point = chunk.layers[i][j];
+                    const worldX = chunk.worldX + j * step;
+
+                    // 1. 烘焙：将之前的 y2 (现在的 currentTheme 地形) 设为 y1
+                    point.y1 = point.y2;
+
+                    // 2. 重新计算 y2 以匹配新的 nextTheme
+                    point.y2 = generateNoiseValue(worldX, newNextTheme.terrainStyle, prop);
+                }
+            }
+        });
+
         // 更新文本并淡入
         sceneNameText.value = state.currentTheme.name[UILang];
         isSceneNameVisible.value = true;
