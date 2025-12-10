@@ -2,8 +2,15 @@
   <div>
     <div id="fx-layer"></div>
     <div id="ui">
+      <h2 class="game-title">THE SKY</h2>
       <h1 ref="uiNameRef" :class="{ visible: isSceneNameVisible }">{{ sceneNameText }}</h1>
       <div class="guide">HOLD [D] or [SPACE] TO ACCELERATE</div>
+      <div id="achievement-container">
+        <div v-for="ach in visibleAchievements" :key="ach.id" class="achievement-notification">
+          <div class="achievement-title">成就解锁</div>
+          <div class="achievement-name">{{ ach.name }}</div>
+        </div>
+      </div>
     </div>
     <audio ref="bgMusicRef" src="https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Monplaisir/And_Then_We_Will_Be_Okay/Monplaisir_-_01_-_And_Then_We_Will_Be_Okay.mp3" loop></audio>
     <canvas ref="canvasRef"></canvas>
@@ -21,6 +28,19 @@ const bgMusicRef = ref(null);
 // Reactive state for UI
 const sceneNameText = ref('');
 const isSceneNameVisible = ref(false);
+const visibleAchievements = ref([]);
+
+function handleAchievementQueue() {
+    const achievements = state.achievements;
+    if (achievements.notificationQueue.length > 0 && visibleAchievements.value.length === 0) {
+        const achievementToShow = achievements.notificationQueue.shift();
+        visibleAchievements.value.push(achievementToShow);
+
+        setTimeout(() => {
+            visibleAchievements.value.shift();
+        }, 3000); // Notification visible for 3 seconds
+    }
+}
 
 // Game variables
 let ctx = null;
@@ -383,6 +403,17 @@ const state = reactive({
     },
     aurora: {
         bands: []
+    },
+    achievements: {
+        unlocked: new Set(),
+        definitions: [
+            { id: 'distance_1', name: '星尘之旅', description: '旅行 10,000 单位距离。', goal: 10000, metric: 'distance' },
+            { id: 'distance_2', name: '光年行者', description: '旅行 100,000 单位距离。', goal: 100000, metric: 'distance' },
+            { id: 'themes_1', name: '位面旅人', description: '探访 5 个不同的主题。', goal: 5, metric: 'themes' },
+            { id: 'themes_2', name: '万象师', description: '探访所有 24 个初始主题。', goal: 24, metric: 'themes' },
+        ],
+        visitedThemes: new Set(),
+        notificationQueue: [],
     }
 });
 
@@ -811,6 +842,11 @@ function update(deltaTime, timestamp) {
         state.currentTheme = state.nextTheme;
         state.nextTheme = Director.generateNextTheme();
 
+        // Track visited themes for achievements
+        if (state.currentTheme.name.en) {
+             state.achievements.visitedThemes.add(state.currentTheme.name.en);
+        }
+
         // *** 新增：地形烘焙逻辑 ***
         // 遍历所有现存的区块，将 y2 的值烘焙到 y1，并为新的 nextTheme 计算新的 y2
         const newNextTheme = state.nextTheme;
@@ -848,6 +884,29 @@ function update(deltaTime, timestamp) {
     handleCinematicEvents();
     updateDistantEntities();
     updateAurora(timestamp);
+
+    // --- 6. 成就系统 ---
+    checkAchievements();
+    handleAchievementQueue();
+}
+
+function checkAchievements() {
+    const achievements = state.achievements;
+    achievements.definitions.forEach(ach => {
+        if (achievements.unlocked.has(ach.id)) return;
+
+        let currentProgress = 0;
+        if (ach.metric === 'distance') {
+            currentProgress = state.worldScrollX;
+        } else if (ach.metric === 'themes') {
+            currentProgress = achievements.visitedThemes.size;
+        }
+
+        if (currentProgress >= ach.goal) {
+            achievements.unlocked.add(ach.id);
+            achievements.notificationQueue.push(ach);
+        }
+    });
 }
 
 function draw(timestamp) {

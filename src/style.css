@@ -63,6 +63,15 @@ h1.visible {
     transform: translateY(0);
 }
 
+.game-title {
+    font-size: 1rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.8);
+    letter-spacing: 8px;
+    margin-bottom: 20px;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
 .guide {
     font-size: 10px;
     opacity: 0.6;
@@ -82,5 +91,55 @@ h1.visible {
 
     100% {
         opacity: 0.4;
+    }
+}
+
+#achievement-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 100;
+}
+
+.achievement-notification {
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 15px;
+    border-radius: 5px;
+    border-left: 5px solid #ffd700;
+    margin-bottom: 10px;
+    animation: slideIn 0.5s ease-out forwards, slideOut 0.5s ease-in 2.5s forwards;
+}
+
+.achievement-title {
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #ffd700;
+}
+
+.achievement-name {
+    font-size: 1rem;
+    margin-top: 5px;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
     }
 }
