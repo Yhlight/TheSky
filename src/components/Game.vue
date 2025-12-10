@@ -1896,18 +1896,6 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
         ctx.scale(p.scale, p.scale);
         ctx.rotate(p.rot);
 
-        // --- 新增：风之语 - 互动式植物摇曳 ---
-        const theme = state.currentTheme;
-        const plantTypes = ['grass', 'branches', 'leaf', 'corals', 'mushrooms'];
-        if (theme.tags.includes('nature') && plantTypes.includes(p.type)) {
-            const windStrength = state.player.velocity.x / CFG.playerMaxSpeed;
-            // [修复] 移除 timestamp 依赖，只根据世界坐标计算基础摆动
-            let swayAngle = Math.sin(p.worldX / 50) * 0.1;
-            if (windStrength > 0.1) {
-                swayAngle += windStrength * -0.5;
-            }
-            ctx.rotate(swayAngle);
-        }
 
         ctx.shadowBlur = 10;
         ctx.shadowColor = C.accent;
