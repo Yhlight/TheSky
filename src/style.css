@@ -84,3 +84,57 @@ h1.visible {
         opacity: 0.4;
     }
 }
+
+.title {
+    position: absolute;
+    top: 5%;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+}
+
+.title h1 {
+    font-size: 3rem;
+    margin: 0;
+    font-weight: 300;
+    letter-spacing: 0.2em;
+}
+
+.title p {
+    font-size: 1rem;
+    margin: 0;
+    font-weight: 300;
+    letter-spacing: 0.1em;
+    opacity: 0.8;
+}
+
+.achievement-toast {
+    position: fixed;
+    bottom: 5%;
+    left: 50%;
+    transform: translate(-50%, 100%);
+    background: rgba(0, 0, 0, 0.7);
+    padding: 15px 30px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    text-align: center;
+    opacity: 0;
+    transition: transform 0.5s ease-out, opacity 0.5s ease-out;
+}
+
+.achievement-toast.visible {
+    transform: translate(-50%, 0);
+    opacity: 1;
+}
+
+.achievement-toast h2 {
+    margin: 0 0 5px 0;
+    font-size: 1.2rem;
+    color: #FFD700; /* Gold color for achievement title */
+    text-shadow: 0 0 10px #FFD700;
+}
+
+.achievement-toast p {
+    margin: 0;
+    font-size: 0.9rem;
+}

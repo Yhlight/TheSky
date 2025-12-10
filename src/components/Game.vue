@@ -2,8 +2,16 @@
   <div>
     <div id="fx-layer"></div>
     <div id="ui">
+      <div class="title">
+        <h1>TheSky</h1>
+        <p>An exploration game</p>
+      </div>
       <h1 ref="uiNameRef" :class="{ visible: isSceneNameVisible }">{{ sceneNameText }}</h1>
       <div class="guide">HOLD [D] or [SPACE] TO ACCELERATE</div>
+      <div class="achievement-toast" :class="{ visible: state.achievements.notification.visible }">
+        <h2>{{ state.achievements.notification.title }}</h2>
+        <p>{{ state.achievements.notification.description }}</p>
+      </div>
     </div>
     <audio ref="bgMusicRef" src="https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Monplaisir/And_Then_We_Will_Be_Okay/Monplaisir_-_01_-_And_Then_We_Will_Be_Okay.mp3" loop></audio>
     <canvas ref="canvasRef"></canvas>
@@ -383,6 +391,14 @@ const state = reactive({
     },
     aurora: {
         bands: []
+    },
+    achievements: {
+        unlocked: new Set(),
+        notification: {
+            visible: false,
+            title: '',
+            description: ''
+        }
     }
 });
 
@@ -402,6 +418,40 @@ const lerpColor = (c1, c2, t) => {
     return `rgb(${r},${g},${b})`;
 };
 const random = (min, max) => Math.random() * (max - min) + min;
+
+// --- Achievements ---
+const ACHIEVEMENTS_LIST = {
+    'distance_10k': { title: { en: "Novice Traveler", ch: "新手旅者" }, description: { en: "Traveled 10,000 units", ch: "旅行了10,000单位" }, requires: (state) => state.worldScrollX > 10000 },
+    'distance_50k': { title: { en: "Seasoned Explorer", ch: "经验丰富的探险家" }, description: { en: "Traveled 50,000 units", ch: "旅行了50,000单位" }, requires: (state) => state.worldScrollX > 50000 },
+    'distance_200k': { title: { en: "Horizon Chaser", ch: "追逐地平线的人" }, description: { en: "Traveled 200,000 units", ch: "旅行了200,000单位" }, requires: (state) => state.worldScrollX > 200000 },
+    'speed_max': { title: { en: "Velocity Master", ch: "速度大师" }, description: { en: "Reached maximum speed", ch: "达到最大速度" }, requires: (state) => state.player.velocity.x >= CFG.playerMaxSpeed * 0.99 },
+};
+
+function checkAchievements() {
+    for (const id in ACHIEVEMENTS_LIST) {
+        if (!state.achievements.unlocked.has(id)) {
+            if (ACHIEVEMENTS_LIST[id].requires(state)) {
+                unlockAchievement(id);
+            }
+        }
+    }
+}
+
+function unlockAchievement(id) {
+    state.achievements.unlocked.add(id);
+    const achievement = ACHIEVEMENTS_LIST[id];
+
+    // Show notification
+    state.achievements.notification.title = achievement.title[UILang];
+    state.achievements.notification.description = achievement.description[UILang];
+    state.achievements.notification.visible = true;
+
+    // Hide notification after a delay
+    setTimeout(() => {
+        state.achievements.notification.visible = false;
+    }, 4000);
+}
+
 
 // --- Value Noise ---
 class ValueNoise {
@@ -848,6 +898,9 @@ function update(deltaTime, timestamp) {
     handleCinematicEvents();
     updateDistantEntities();
     updateAurora(timestamp);
+
+    // --- 6. 成就检查 ---
+    checkAchievements();
 }
 
 function draw(timestamp) {
@@ -1285,7 +1338,7 @@ function drawNpcs(ctx, C) {
     ctx.fillStyle = C.accent;
 
     state.npcs.forEach(npc => {
-        const screenX = npc.worldX - state.worldScrollX;
+        const screenX = Math.round(npc.worldX - state.worldScrollX);
 
         ctx.globalAlpha = 0.7;
         ctx.beginPath();
@@ -1479,7 +1532,7 @@ function drawTerrainLayerFromChunks(ctx, color, layerIndex, progress) {
 
         for (let i = 0; i < layerData.length; i++) {
             const pointData = layerData[i];
-            const screenX = chunk.worldX + i * step - state.worldScrollX;
+            const screenX = Math.round(chunk.worldX + i * step - state.worldScrollX);
 
             // 实时混合
             const y = lerp(pointData.y1, pointData.y2, progress);
@@ -1765,7 +1818,7 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
             if (!layerData) continue;
             for (let i = 0; i < layerData.length; i++) {
                 const pointData = layerData[i];
-                const screenX = chunk.worldX + i * step - state.worldScrollX;
+                const screenX = Math.round(chunk.worldX + i * step - state.worldScrollX);
                 const y = lerp(pointData.y1, pointData.y2, progress);
                 // 稍微偏移裂隙，使其看起来在地面之下
                 ctx.lineTo(screenX, y + 5 + Math.sin(i * 0.5) * 2);
@@ -1787,7 +1840,7 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
         const drawer = PROP_DRAWERS[p.type];
         if (!drawer) return;
 
-        const x = p.worldX - state.worldScrollX;
+        const x = Math.round(p.worldX - state.worldScrollX);
 
         // 从缓存中获取精确的地面高度 (实时混合，跨区块)
         const chunkId = Math.floor(p.worldX / CFG.CHUNK_WIDTH);

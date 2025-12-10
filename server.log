@@ -2,9 +2,8 @@
 > the-sky-vue@0.0.0 dev
 > vite
 
-3:12:25 AM [vite] (client) Re-optimizing dependencies because vite config has changed
 
-  VITE v7.2.4  ready in 399 ms
+  VITE v7.2.4  ready in 354 ms
 
   ➜  Local:   http://localhost:5173/
   ➜  Network: use --host to expose

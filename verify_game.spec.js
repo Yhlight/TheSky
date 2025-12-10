@@ -5,7 +5,7 @@ test('visually verify game smoothness and style', async ({ page }) => {
   await page.goto('http://localhost:5173');
 
   // Wait for the canvas to be ready and rendered
-  await page.waitForSelector('#canvas');
+  await page.waitForSelector('canvas');
 
   // Give the game a few seconds to run and stabilize
   await page.waitForTimeout(5000);
