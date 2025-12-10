@@ -2039,12 +2039,9 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
                 const y1 = lerp(pointData1.y1, pointData1.y2, progress);
                 const y2 = lerp(pointData2.y1, pointData2.y2, progress);
                 groundY = lerp(y1, y2, t);
-            } else if (pointData1) {
+            } else {
                 // 如果插值所需的点（特别是下一个块的第一个点）还未生成，
                 // 则使用前一个点的高度作为备用值，而不是跳过绘制，防止抽搐。
-                groundY = lerp(pointData1.y1, pointData1.y2, progress);
-            } else {
-                // 如果连第一个点都找不到，则跳过绘制
                 return;
             }
         }
