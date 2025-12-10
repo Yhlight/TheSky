@@ -461,6 +461,41 @@ const lerpColor = (c1, c2, t) => {
 // --- Seeded Random Number Generator ---
 // Using a simple LCG (Linear Congruential Generator) for determinism
 let SEED = Math.random();
+
+function getGroundY(worldX) {
+    const progress = state.transitionProgress;
+    const chunkId = Math.floor(worldX / CFG.CHUNK_WIDTH);
+    const chunk = state.terrain.chunks.get(chunkId);
+
+    if (!chunk) {
+        return null;
+    }
+
+    const step = CFG.CHUNK_WIDTH / CFG.CHUNK_RESOLUTION;
+    const xInChunk = worldX - chunk.worldX;
+    const pointIndexFloat = xInChunk / step;
+    const index1 = Math.floor(pointIndexFloat);
+    const index2 = index1 + 1;
+
+    let pointData1 = chunk.layers[2]?.[index1];
+    let pointData2 = chunk.layers[2]?.[index2];
+
+    if (!pointData2 && index2 >= CFG.CHUNK_RESOLUTION) {
+        const nextChunk = state.terrain.chunks.get(chunkId + 1);
+        if (nextChunk) {
+            pointData2 = nextChunk.layers[2]?.[0];
+        }
+    }
+
+    if (pointData1 && pointData2) {
+        const t = pointIndexFloat - index1;
+        const y1 = lerp(pointData1.y1, pointData1.y2, progress);
+        const y2 = lerp(pointData2.y1, pointData2.y2, progress);
+        return lerp(y1, y2, t);
+    }
+
+    return null;
+}
 function createSeededRandom(seed) {
     let state = seed;
     return () => {
@@ -1981,11 +2016,13 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
             const layerData = chunk.layers[2]; // 地面层
             if (!layerData) continue;
             for (let i = 0; i < layerData.length; i++) {
-                const pointData = layerData[i];
-                const screenX = chunk.worldX + i * step - state.worldScrollX;
-                const y = lerp(pointData.y1, pointData.y2, progress);
-                // 稍微偏移裂隙，使其看起来在地面之下
-                ctx.lineTo(screenX, y + 5 + Math.sin(i * 0.5) * 2);
+                const worldX = chunk.worldX + i * step;
+                const groundY = getGroundY(worldX);
+                if (groundY !== null) {
+                    const screenX = worldX - state.worldScrollX;
+                    // 稍微偏移裂隙，使其看起来在地面之下
+                    ctx.lineTo(screenX, groundY + 5 + Math.sin(i * 0.5) * 2);
+                }
             }
         }
         ctx.stroke();
@@ -2005,45 +2042,10 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
         if (!drawer) return;
 
         const x = p.worldX - state.worldScrollX;
+        const groundY = getGroundY(p.worldX);
 
-        // 从缓存中获取精确的地面高度 (实时混合，跨区块)
-        const chunkId = Math.floor(p.worldX / CFG.CHUNK_WIDTH);
-        const chunk = state.terrain.chunks.get(chunkId);
-        let groundY = h * CFG.terrainBaseY;
-
-        if (chunk) {
-            const step = CFG.CHUNK_WIDTH / CFG.CHUNK_RESOLUTION;
-            const xInChunk = p.worldX - chunk.worldX;
-            const pointIndexFloat = xInChunk / step;
-
-            const index1 = Math.floor(pointIndexFloat);
-            const index2 = index1 + 1;
-
-            let pointData1 = chunk.layers[2]?.[index1];
-            let pointData2 = chunk.layers[2]?.[index2];
-
-            // 如果index2超出了当前区块的范围，尝试从下一个区块获取
-            if (!pointData2 && index2 >= CFG.CHUNK_RESOLUTION) {
-                const nextChunk = state.terrain.chunks.get(chunkId + 1);
-                if (nextChunk) {
-                    pointData2 = nextChunk.layers[2]?.[0];
-                }
-            }
-
-            // [最终修复] 只有当插值所需的所有数据点都可用时才进行计算和绘制。
-            // 这可以防止在地形块生成边缘因使用回退值（fallback value）而导致的视觉“跳跃”。
-            // 鉴于地形数据本身现在是连续的（通过烘焙），即使一个道具消失一帧，
-            // 它在下一帧重新出现时也会处于一个平滑、正确的位置上。
-            if (pointData1 && pointData2) {
-                const t = pointIndexFloat - index1;
-                const y1 = lerp(pointData1.y1, pointData1.y2, progress);
-                const y2 = lerp(pointData2.y1, pointData2.y2, progress);
-                groundY = lerp(y1, y2, t);
-            } else {
-                // 如果插值所需的点（特别是下一个块的第一个点）还未生成，
-                // 则使用前一个点的高度作为备用值，而不是跳过绘制，防止抽搐。
-                return;
-            }
+        if (groundY === null) {
+            return;
         }
 
         ctx.save();
