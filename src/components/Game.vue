@@ -351,6 +351,32 @@ const THEMES = [
         propType: 'glitches',
         terrainStyle: 'jagged',
         weather: 'none'
+    },
+    {
+        name: { en: "LUMINA GROVE", ch: "流光森林" },
+        tags: ['dark', 'nature', 'forest', 'magic', 'bioluminescent'],
+        sky: ['#020111', '#191970'],
+        sun: '#f0f8ff', sunSize: 30, sunY: 0.1,
+        mountFar: '#1a1a3a', mountNear: '#2c2c54',
+        ground: '#3c3c64',
+        accent: '#7fffd4',
+        fogColor: '#483d8b', fogAlpha: 0.25,
+        propType: 'bioluminescent_trees',
+        terrainStyle: 'bioluminescent_forest',
+        weather: 'spores'
+    },
+    {
+        name: { en: "CRYSTAL DUNES", ch: "晶尘沙丘" },
+        tags: ['bright', 'dry', 'crystals', 'desolate'],
+        sky: ['#f0e68c', '#dda0dd'],
+        sun: '#ffffff', sunSize: 100, sunY: 0.3,
+        mountFar: '#eee8aa', mountNear: '#d8bfd8',
+        ground: '#e6e6fa',
+        accent: '#da70d6',
+        fogColor: '#f8f8ff', fogAlpha: 0.15,
+        propType: 'crystal_spires',
+        terrainStyle: 'crystal_desert',
+        weather: 'sandstorm'
     }
 ];
 
@@ -432,12 +458,25 @@ const lerpColor = (c1, c2, t) => {
     const b = Math.round(lerp(rgb1[2], rgb2[2], t));
     return `rgb(${r},${g},${b})`;
 };
-const random = (min, max) => Math.random() * (max - min) + min;
+// --- Seeded Random Number Generator ---
+// Using a simple LCG (Linear Congruential Generator) for determinism
+let SEED = Math.random();
+function createSeededRandom(seed) {
+    let state = seed;
+    return () => {
+        state = (state * 9301 + 49297) % 233280;
+        return state / 233280;
+    };
+}
+let randomFn = createSeededRandom(SEED);
+
+const random = (min, max) => randomFn() * (max - min) + min;
+
 
 // --- Advanced Noise Generation ---
 const PERMUTATION = Array.from({ length: 256 }, (_, i) => i);
 for (let i = PERMUTATION.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(randomFn() * (i + 1));
     [PERMUTATION[i], PERMUTATION[j]] = [PERMUTATION[j], PERMUTATION[i]];
 }
 const P = [...PERMUTATION, ...PERMUTATION];
@@ -466,9 +505,9 @@ const fbm = (x, octaves, persistence, lacunarity) => {
 };
 
 // Re-seedable random for consistent wind patterns
-let seed = Math.random();
+let windSeed = randomFn();
 const seededRandom = () => {
-    const x = Math.sin(seed++) * 10000;
+    const x = Math.sin(windSeed++) * 10000;
     return x - Math.floor(x);
 };
 const windNoiseX = { get: x => fbm(x, 3, 0.5, 2) };
@@ -530,11 +569,11 @@ const Director = {
         else if (hue < 290) adjPool = this.nameParts.adjectives.purples;
         else if (hue < 330) adjPool = this.nameParts.adjectives.pinks;
         else adjPool = this.nameParts.adjectives.neutrals;
-        if (Math.random() < 0.3) {
+        if (randomFn() < 0.3) {
             adjPool = adjPool.concat(this.nameParts.adjectives.neutrals);
         }
-        const adj = adjPool[Math.floor(Math.random() * adjPool.length)];
-        const noun = this.nameParts.nouns[Math.floor(Math.random() * this.nameParts.nouns.length)];
+        const adj = adjPool[Math.floor(randomFn() * adjPool.length)];
+        const noun = this.nameParts.nouns[Math.floor(randomFn() * this.nameParts.nouns.length)];
         return { en: `${adj.en.toUpperCase()} ${noun.en.toUpperCase()}`, ch: `${adj.ch}${noun.ch}` };
     },
     _hslToHex: function(h, s, l) {
@@ -549,12 +588,12 @@ const Director = {
     },
     generatePalette: function() {
         // ... (rest of the function is the same, no need to include here for brevity)
-        const baseHue = Math.random() * 360;
+        const baseHue = randomFn() * 360;
         const saturation = random(40, 70);
         const lightness = random(30, 60);
 
         // 视觉优化：调整模型权重，优先使用和谐的邻近色
-        const rand = Math.random();
+        const rand = randomFn();
         let model;
         if (rand < 0.7) { // 70% 概率
             model = 'analogous';
@@ -611,14 +650,14 @@ const Director = {
         return { sky: [sky1, sky2], ground, mountNear, mountFar, accent, sun, fog };
     },
     generateParams: function() {
-        const availableTerrain = ['mountain', 'jagged', 'ocean', 'cityscape', 'canyons', 'floating_islands'];
+        const availableTerrain = ['mountain', 'jagged', 'ocean', 'cityscape', 'canyons', 'floating_islands', 'bioluminescent_forest', 'crystal_desert'];
         return {
             sunSize: random(20, 150),
             sunY: random(0.15, 0.6),
             fogAlpha: random(0.1, 0.35),
-            propType: this.baseThemes[Math.floor(Math.random() * this.baseThemes.length)].propType,
-            terrainStyle: availableTerrain[Math.floor(Math.random() * availableTerrain.length)],
-            weather: this.baseThemes[Math.floor(Math.random() * this.baseThemes.length)].weather,
+            propType: this.baseThemes[Math.floor(randomFn() * this.baseThemes.length)].propType,
+            terrainStyle: availableTerrain[Math.floor(randomFn() * availableTerrain.length)],
+            weather: this.baseThemes[Math.floor(randomFn() * this.baseThemes.length)].weather,
         };
     },
     generateNextTheme: function() {
@@ -644,14 +683,16 @@ const Director = {
         if (newTheme.terrainStyle === 'cityscape') newTheme.tags.push('city');
         if (newTheme.terrainStyle === 'canyons') newTheme.tags.push('dry');
         if (newTheme.terrainStyle === 'floating_islands') newTheme.tags.push('heavenly');
+        if (newTheme.terrainStyle === 'bioluminescent_forest') newTheme.tags.push('forest', 'magic', 'bioluminescent');
+        if (newTheme.terrainStyle === 'crystal_desert') newTheme.tags.push('dry', 'crystals');
         if (newTheme.weather === 'snow') newTheme.tags.push('cold');
         if (newTheme.weather === 'rain') newTheme.tags.push('rainy');
         if (newTheme.weather === 'embers') newTheme.tags.push('fire');
-        if (Math.random() < 0.2) newTheme.tags.push('ruins');
-        if (Math.random() < 0.1) newTheme.tags.push('magic');
-        if (Math.random() < 0.1) newTheme.tags.push('void');
-        if (Math.random() < 0.15 && newTheme.tags.includes('rainy')) newTheme.tags.push('stormy');
-        if (newTheme.tags.includes('cold') && Math.random() < 0.3) newTheme.tags.push('aurora');
+        if (randomFn() < 0.2) newTheme.tags.push('ruins');
+        if (randomFn() < 0.1) newTheme.tags.push('magic');
+        if (randomFn() < 0.1) newTheme.tags.push('void');
+        if (randomFn() < 0.15 && newTheme.tags.includes('rainy')) newTheme.tags.push('stormy');
+        if (newTheme.tags.includes('cold') && randomFn() < 0.3) newTheme.tags.push('aurora');
         return newTheme;
     }
 };
@@ -1038,7 +1079,7 @@ function handleCinematicEvents() {
 
     // --- 过渡事件：流星雨 (基于标签) ---
     if (T1.tags.includes('void') && state.transitionProgress > 0.4 && state.transitionProgress < 0.6) {
-        if (Math.random() < 0.2) { // 密度控制
+        if (randomFn() < 0.2) { // 密度控制
             // 创建一颗流星
             state.weatherParticles.push({
                 x: random(0, w),
@@ -1095,7 +1136,7 @@ function updateWeather() {
 
     // 3. 生成新粒子
     const density = { rain: 0.5, snow: 0.1, windy: 0.3, embers: 0.4, spores: 0.2 };
-    if (Math.random() < (density[weatherType] || 0)) {
+    if (randomFn() < (density[weatherType] || 0)) {
         const p = {
             x: random(0, w),
             y: -10,
@@ -1223,6 +1264,16 @@ function generateNoiseValue(x, style, prop) {
                     return prop.base - height - antenna;
                 }
                 return prop.base;
+            case 'bioluminescent_forest':
+                // Rolling hills with occasional large root-like structures
+                const groundShape = fbm(x * prop.freq * 0.7, 4, 0.6, 2.1) * prop.amp;
+                const largeRoots = fbm(x * prop.freq * 0.2, 3, 0.8, 2) * prop.amp * 1.5;
+                return prop.base + groundShape + largeRoots;
+            case 'crystal_desert':
+                // Flat dunes with sharp crystal spikes
+                const dunes = fbm(x * prop.freq * 0.5, 3, 0.4, 2) * prop.amp * 0.5;
+                const spikes = Math.pow(Math.abs(fbm(x * 0.1, 2, 0.8, 2.5)), 3) * prop.amp * 2;
+                return prop.base + dunes - (spikes > prop.amp * 0.2 ? spikes : 0);
             default: // mountain, jagged, etc.
                 return prop.base + fbm(x * prop.freq, 5, 0.5, 2.2) * prop.amp * 0.8;
         }
@@ -1241,6 +1292,15 @@ function generateNoiseValue(x, style, prop) {
         case 'cityscape':
             const cluster = Math.floor(x / 150);
             noiseVal = Math.pow(fbm(cluster * 0.2 + scroll, 2, 0.5, 2), 3) * prop.amp;
+            break;
+        case 'bioluminescent_forest':
+             // Dense canopy effect for background layers
+            noiseVal = fbm(x * baseFreq * 0.5 + scroll, 6, 0.4, 2.5) * prop.amp * 1.2;
+            noiseVal += fbm(x * baseFreq * 2.0 + scroll, 4, 0.5, 2.0) * prop.amp * 0.5;
+            break;
+        case 'crystal_desert':
+            // Distant crystal formations mirrored in the background
+            noiseVal = Math.pow(Math.abs(fbm(x * 0.001 + scroll, 2, 0.7, 2)), 2) * prop.amp * 1.5;
             break;
         case 'jagged':
              // Use absolute value of noise to create sharp peaks and valleys
@@ -1322,11 +1382,11 @@ function generateWorldEntities() {
     const particleDensity = lerp(0.05, 0.3, speedProgress);
 
     // Props (相对稀疏)
-    if (Math.random() < 0.015) {
+    if (randomFn() < 0.015) {
         // *** 混合生成道具 ***
         const T1 = state.currentTheme;
         const T2 = state.nextTheme;
-        const propTheme = (Math.random() < state.transitionProgress) ? T2 : T1;
+        const propTheme = (randomFn() < state.transitionProgress) ? T2 : T1;
 
         if (propTheme.propType !== 'none') {
             state.props.push({
@@ -1340,7 +1400,7 @@ function generateWorldEntities() {
     }
 
     // Particles (密集且受速度影响)
-    if (Math.random() < particleDensity) {
+    if (randomFn() < particleDensity) {
         state.particles.push({
             x: w + 10,
             y: random(0, h),
@@ -1372,7 +1432,7 @@ function generateWorldEntities() {
     }
 
     // --- 新增：NPC 生成 ---
-    if (Math.random() < 0.005 && state.npcs.length < 5) { // 较低的生成概率，并限制最大数量
+    if (randomFn() < 0.005 && state.npcs.length < 5) { // 较低的生成概率，并限制最大数量
         state.npcs.push({
             worldX: state.worldScrollX + w + 200, // 在屏幕右侧生成
             y: random(h * 0.2, h * 0.8),
@@ -1836,6 +1896,60 @@ const PROP_DRAWERS = {
         // 绘制红色的故障方块
         ctx.fillStyle = C.accent;
         ctx.fillRect(random(-10, 10), -random(0, 50), random(5, 15), random(5, 15));
+    },
+    'bioluminescent_trees': (ctx, C, p) => {
+        // 绘制发光的树木
+        ctx.globalAlpha = 0.9;
+        const height = random(80, 200) * p.scale;
+        const trunkWidth = random(5, 15) * p.scale;
+
+        // 绘制深色树干
+        ctx.fillStyle = C.mountNear;
+        ctx.beginPath();
+        ctx.moveTo(-trunkWidth / 2, 0);
+        ctx.bezierCurveTo(
+            random(-10, 10), -height * 0.5,
+            random(-10, 10), -height * 0.8,
+            0, -height
+        );
+        ctx.bezierCurveTo(
+            random(10, -10), -height * 0.8,
+            random(10, -10), -height * 0.5,
+            trunkWidth / 2, 0
+        );
+        ctx.fill();
+
+        // 绘制发光部分
+        ctx.fillStyle = C.accent;
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = C.accent;
+        const glowCount = Math.floor(random(3, 8));
+        for (let i = 0; i < glowCount; i++) {
+            ctx.beginPath();
+            ctx.arc(random(-15, 15), -random(height * 0.2, height), random(2, 5) * p.scale, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    },
+    'crystal_spires': (ctx, C, p) => {
+        // 绘制巨大的水晶尖顶
+        ctx.globalAlpha = 0.8;
+        const spireHeight = random(100, 300) * p.scale;
+        const spireWidth = random(30, 60) * p.scale;
+
+        ctx.strokeStyle = C.accent;
+        ctx.fillStyle = `rgba(230, 230, 250, 0.4)`; // Lavender tint
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = C.accent;
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-spireWidth / 2, -spireHeight * 0.8);
+        ctx.lineTo(0, -spireHeight);
+        ctx.lineTo(spireWidth / 2, -spireHeight * 0.8);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.fill();
     }
 };
 
@@ -2039,7 +2153,7 @@ function updateDistantEntities() {
     // 2. 根据当前场景生成新实体 (基于标签)
     const theme = state.currentTheme;
 
-    if (theme.tags.includes('heavenly') && theme.tags.includes('city') && Math.random() < 0.01 && state.distantEntities.length < 3) {
+    if (theme.tags.includes('heavenly') && theme.tags.includes('city') && randomFn() < 0.01 && state.distantEntities.length < 3) {
         state.distantEntities.push({
             type: 'fleet',
             x: w + 150,
@@ -2050,7 +2164,7 @@ function updateDistantEntities() {
         });
     }
 
-    if (theme.tags.includes('fire') && theme.tags.includes('hostile') && Math.random() < 0.02) {
+    if (theme.tags.includes('fire') && theme.tags.includes('hostile') && randomFn() < 0.02) {
         state.distantEntities.push({
             type: 'geyser',
             x: random(0, w),
@@ -2062,7 +2176,7 @@ function updateDistantEntities() {
         });
     }
 
-    if (theme.tags.includes('ocean') && theme.tags.includes('colorful') && Math.random() < 0.005 && !state.distantEntities.some(e => e.type === 'whale')) {
+    if (theme.tags.includes('ocean') && theme.tags.includes('colorful') && randomFn() < 0.005 && !state.distantEntities.some(e => e.type === 'whale')) {
         state.distantEntities.push({
             type: 'whale',
             x: w + 300,
@@ -2073,7 +2187,7 @@ function updateDistantEntities() {
         });
     }
 
-    if (theme.tags.includes('cave') && theme.tags.includes('magic') && Math.random() < 0.015) {
+    if (theme.tags.includes('cave') && theme.tags.includes('magic') && randomFn() < 0.015) {
         state.distantEntities.push({
             type: 'resonance',
             x: random(0, w),
@@ -2084,7 +2198,7 @@ function updateDistantEntities() {
         });
     }
 
-    if (theme.tags.includes('ruins') && theme.tags.includes('giant') && Math.random() < 0.008 && !state.distantEntities.some(e => e.type === 'colossus_head')) {
+    if (theme.tags.includes('ruins') && theme.tags.includes('giant') && randomFn() < 0.008 && !state.distantEntities.some(e => e.type === 'colossus_head')) {
         state.distantEntities.push({
             type: 'colossus_head',
             x: w * 0.7,
@@ -2105,7 +2219,7 @@ function updateDistantEntities() {
         });
     }
 
-    if (theme.tags.includes('glitch') && Math.random() < 0.1) {
+    if (theme.tags.includes('glitch') && randomFn() < 0.1) {
         state.distantEntities.push({
             type: 'glitch_effect',
             x: random(0, w),
@@ -2116,7 +2230,7 @@ function updateDistantEntities() {
         });
     }
 
-    if (theme.tags.includes('sci-fi') && theme.tags.includes('void') && Math.random() < 0.03) {
+    if (theme.tags.includes('sci-fi') && theme.tags.includes('void') && randomFn() < 0.03) {
         state.distantEntities.push({
             type: 'string_pluck',
             x: random(0, w),
@@ -2126,7 +2240,7 @@ function updateDistantEntities() {
     }
 
     // --- NEW MAJOR SCENE PERFORMANCES ---
-    if ((theme.tags.includes('dry') || theme.tags.includes('desolate')) && Math.random() < 0.005 && !state.distantEntities.some(e => e.type === 'sandworm')) {
+    if ((theme.tags.includes('dry') || theme.tags.includes('desolate')) && randomFn() < 0.005 && !state.distantEntities.some(e => e.type === 'sandworm')) {
         state.distantEntities.push({
             type: 'sandworm',
             x: w + 400, y: h * 0.8, vx: -0.8, life: 1,
@@ -2134,7 +2248,7 @@ function updateDistantEntities() {
         });
     }
 
-    if ((theme.tags.includes('magic') || theme.tags.includes('crystals')) && Math.random() < 0.01 && state.distantEntities.length < 5) {
+    if ((theme.tags.includes('magic') || theme.tags.includes('crystals')) && randomFn() < 0.01 && state.distantEntities.length < 5) {
         state.distantEntities.push({
             type: 'floating_crystal',
             x: w + random(100, 300), y: random(h * 0.2, h * 0.7),
@@ -2144,23 +2258,53 @@ function updateDistantEntities() {
         });
     }
      // Renamed from 'whale' to 'sky_whale' for clarity
-    if ((theme.tags.includes('heavenly') || theme.tags.includes('ocean')) && Math.random() < 0.005 && !state.distantEntities.some(e => e.type === 'sky_whale')) {
+    if ((theme.tags.includes('heavenly') || theme.tags.includes('ocean')) && randomFn() < 0.005 && !state.distantEntities.some(e => e.type === 'sky_whale')) {
         state.distantEntities.push({
             type: 'sky_whale',
             x: w + 300, y: random(h * 0.3, h * 0.7), vx: -0.15, life: 1, scale: random(1, 1.8)
         });
     }
 
+    if (theme.tags.includes('void') && randomFn() < 0.05) {
+        state.distantEntities.push({
+            type: 'meteor_shower',
+            x: random(w * 0.5, w * 1.5), y: -50,
+            vx: -random(15, 25), vy: random(15, 25),
+            life: 1, scale: random(0.5, 1.5), length: random(200, 400)
+        });
+    }
+
+    if ((theme.tags.includes('city') || theme.tags.includes('sci-fi')) && randomFn() < 0.01 && !state.distantEntities.some(e => e.type === 'fleet_of_ships')) {
+        const shipCount = Math.floor(random(5, 10));
+        const ships = [];
+        for (let i = 0; i < shipCount; i++) {
+            ships.push({
+                dx: random(-100, 100),
+                dy: random(-50, 50)
+            });
+        }
+        state.distantEntities.push({
+            type: 'fleet_of_ships',
+            x: w + 200, y: random(h * 0.2, h * 0.5),
+            vx: -random(1, 2), life: 1, scale: random(0.8, 1.5),
+            ships: ships
+        });
+    }
+
 
     // 3. 更新实体状态
     state.distantEntities.forEach(e => {
-        if (e.type === 'fleet' || e.type === 'whale' || e.type === 'sky_whale' || e.type === 'sandworm' || e.type === 'floating_crystal') {
+        if (e.type === 'fleet' || e.type === 'whale' || e.type === 'sky_whale' || e.type === 'sandworm' || e.type === 'floating_crystal' || e.type === 'fleet_of_ships') {
             e.x += e.vx;
+        } else if (e.type === 'meteor_shower') {
+            e.x += e.vx;
+            e.y += e.vy;
+            e.life -= 0.005;
         } else if (e.type === 'geyser') {
             if (e.y > e.maxHeight) {
                 e.y += e.vy;
                 // 生成粒子
-                if (Math.random() < 0.5) {
+                if (randomFn() < 0.5) {
                     e.particles.push({ x: e.x + random(-10, 10), y: e.y, life: 1 });
                 }
             }
@@ -2208,6 +2352,36 @@ function drawDistantEntities(ctx, C) {
         ctx.globalAlpha = 0.5 * e.life; // 远景实体都比较透明
 
         switch(e.type) {
+            case 'meteor_shower':
+                ctx.globalAlpha = e.life;
+                const grad = ctx.createLinearGradient(e.x, e.y, e.x - e.vx * 10, e.y - e.vy * 10);
+                grad.addColorStop(0, 'white');
+                grad.addColorStop(1, 'transparent');
+                ctx.strokeStyle = grad;
+                ctx.lineWidth = 2 * e.scale;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = 'white';
+                ctx.beginPath();
+                ctx.moveTo(e.x, e.y);
+                ctx.lineTo(e.x - e.vx * 10, e.y - e.vy * 10);
+                ctx.stroke();
+                break;
+            case 'fleet_of_ships':
+                ctx.globalAlpha = 0.7 * e.life;
+                ctx.fillStyle = C.accent;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = C.accent;
+                e.ships.forEach(ship => {
+                    const shipX = e.x + ship.dx * e.scale;
+                    const shipY = e.y + ship.dy * e.scale;
+                    ctx.beginPath();
+                    ctx.moveTo(shipX, shipY);
+                    ctx.lineTo(shipX - 20 * e.scale, shipY + 5 * e.scale);
+                    ctx.lineTo(shipX - 20 * e.scale, shipY - 5 * e.scale);
+                    ctx.closePath();
+                    ctx.fill();
+                });
+                break;
             case 'fleet':
                 ctx.fillStyle = '#ffffff';
                 ctx.shadowBlur = 20;
@@ -2375,6 +2549,20 @@ function drawDistantEntities(ctx, C) {
 onMounted(() => {
     // Initialization
     ctx = canvasRef.value.getContext('2d', { alpha: false });
+
+    // --- Deterministic Seeding for Testing ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const seedParam = urlParams.get('seed');
+    if (seedParam) {
+        SEED = parseFloat(seedParam);
+        console.log(`Using provided seed: ${SEED}`);
+    } else {
+        SEED = Math.random();
+        console.log(`Using random seed: ${SEED}`);
+    }
+    randomFn = createSeededRandom(SEED);
+
+
     Director.init();
 
     // Set initial theme

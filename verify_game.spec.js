@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 test('visually verify game smoothness and style', async ({ page }) => {
-  // Navigate to the locally served game from Vite
-  await page.goto('http://localhost:5173');
+  // Navigate to the locally served game from Vite with a fixed seed
+  await page.goto('http://localhost:5173/?seed=12345');
   await page.waitForLoadState('networkidle');
 
   // Press "Enter" to start the game
