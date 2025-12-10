@@ -1,11 +1,20 @@
 <template>
   <div id="game-container">
-    <Game />
+    <SplashScreen v-if="!gameStarted" @start-game="startGame" />
+    <Game v-else />
   </div>
 </template>
 
 <script setup>
-import Game from './components/Game.vue'
+import { ref } from 'vue';
+import SplashScreen from './components/SplashScreen.vue';
+import Game from './components/Game.vue';
+
+const gameStarted = ref(false);
+
+function startGame() {
+  gameStarted.value = true;
+}
 </script>
 
 <style>

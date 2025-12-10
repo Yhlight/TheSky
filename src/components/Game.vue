@@ -13,7 +13,7 @@
       </div>
     </div>
     <audio ref="bgMusicRef" src="https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Monplaisir/And_Then_We_Will_Be_Okay/Monplaisir_-_01_-_And_Then_We_Will_Be_Okay.mp3" loop></audio>
-    <canvas ref="canvasRef"></canvas>
+    <canvas ref="canvasRef" id="canvas"></canvas>
   </div>
 </template>
 
@@ -1902,7 +1902,10 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
         if (theme.tags.includes('nature') && plantTypes.includes(p.type)) {
             const windStrength = state.player.velocity.x / CFG.playerMaxSpeed;
             // [修复] 移除 timestamp 依赖，只根据世界坐标计算基础摆动
-            const swayAngle = Math.sin(p.worldX / 50) * 0.1 + windStrength * -0.5;
+            let swayAngle = Math.sin(p.worldX / 50) * 0.1;
+            if (windStrength > 0.1) {
+                swayAngle += windStrength * -0.5;
+            }
             ctx.rotate(swayAngle);
         }
 

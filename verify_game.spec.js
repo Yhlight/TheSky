@@ -5,6 +5,9 @@ test('visually verify game smoothness and style', async ({ page }) => {
   await page.goto('http://localhost:5173');
   await page.waitForLoadState('networkidle');
 
+  // Press "Enter" to start the game
+  await page.keyboard.press('Enter');
+
   // Wait for the canvas to be ready and rendered
   await page.waitForSelector('#canvas', { timeout: 60000 });
 
