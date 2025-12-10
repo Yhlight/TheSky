@@ -434,29 +434,46 @@ const lerpColor = (c1, c2, t) => {
 };
 const random = (min, max) => Math.random() * (max - min) + min;
 
-// --- Value Noise ---
-class ValueNoise {
-    constructor(seed = Math.random()) {
-        this.seed = seed;
-        this.values = new Array(256).fill(0).map(() => Math.random());
-    }
-    cosineInterpolate(a, b, t) {
-        const ft = t * Math.PI;
-        const f = (1 - Math.cos(ft)) * 0.5;
-        return a * (1 - f) + b * f;
-    }
-    get(x) {
-        const intX = Math.floor(x);
-        const fracX = x - intX;
-        const v1 = this.values[intX & 255];
-        const v2 = this.values[(intX + 1) & 255];
-        return this.cosineInterpolate(v1, v2, fracX);
-    }
+// --- Advanced Noise Generation ---
+const PERMUTATION = Array.from({ length: 256 }, (_, i) => i);
+for (let i = PERMUTATION.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [PERMUTATION[i], PERMUTATION[j]] = [PERMUTATION[j], PERMUTATION[i]];
 }
-const terrainNoise = new ValueNoise();
-const windNoiseX = new ValueNoise(Math.random());
-const windNoiseY = new ValueNoise(Math.random());
-const auroraNoise = new ValueNoise(Math.random());
+const P = [...PERMUTATION, ...PERMUTATION];
+
+const quintic = t => t * t * t * (t * (t * 6 - 15) + 10);
+const grad = (hash, x) => (hash & 1) === 0 ? x : -x;
+const noise = x => {
+    const X = Math.floor(x) & 255;
+    x -= Math.floor(x);
+    const u = quintic(x);
+    return lerp(grad(P[X], x), grad(P[X + 1], x - 1), u) * 2;
+};
+
+const fbm = (x, octaves, persistence, lacunarity) => {
+    let total = 0;
+    let frequency = 1;
+    let amplitude = 1;
+    let maxValue = 0;
+    for (let i = 0; i < octaves; i++) {
+        total += noise(x * frequency) * amplitude;
+        maxValue += amplitude;
+        amplitude *= persistence;
+        frequency *= lacunarity;
+    }
+    return total / maxValue;
+};
+
+// Re-seedable random for consistent wind patterns
+let seed = Math.random();
+const seededRandom = () => {
+    const x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+};
+const windNoiseX = { get: x => fbm(x, 3, 0.5, 2) };
+const windNoiseY = { get: x => fbm(x + 17, 3, 0.5, 2) }; // Offset to de-correlate
+const auroraNoise = { get: x => fbm(x, 4, 0.4, 2.5) };
 
 // --- Director Module ---
 const Director = {
@@ -594,12 +611,13 @@ const Director = {
         return { sky: [sky1, sky2], ground, mountNear, mountFar, accent, sun, fog };
     },
     generateParams: function() {
+        const availableTerrain = ['mountain', 'jagged', 'ocean', 'cityscape', 'canyons', 'floating_islands'];
         return {
             sunSize: random(20, 150),
             sunY: random(0.15, 0.6),
             fogAlpha: random(0.1, 0.35),
             propType: this.baseThemes[Math.floor(Math.random() * this.baseThemes.length)].propType,
-            terrainStyle: this.baseThemes[Math.floor(Math.random() * this.baseThemes.length)].terrainStyle,
+            terrainStyle: availableTerrain[Math.floor(Math.random() * availableTerrain.length)],
             weather: this.baseThemes[Math.floor(Math.random() * this.baseThemes.length)].weather,
         };
     },
@@ -624,6 +642,8 @@ const Director = {
         if (newTheme.terrainStyle === 'mountain') newTheme.tags.push('mountain');
         if (newTheme.terrainStyle === 'jagged') newTheme.tags.push('jagged');
         if (newTheme.terrainStyle === 'cityscape') newTheme.tags.push('city');
+        if (newTheme.terrainStyle === 'canyons') newTheme.tags.push('dry');
+        if (newTheme.terrainStyle === 'floating_islands') newTheme.tags.push('heavenly');
         if (newTheme.weather === 'snow') newTheme.tags.push('cold');
         if (newTheme.weather === 'rain') newTheme.tags.push('rainy');
         if (newTheme.weather === 'embers') newTheme.tags.push('fire');
@@ -1174,41 +1194,65 @@ function generateNoiseValue(x, style, prop) {
     let noiseVal = 0;
     const scroll = x * prop.speedScale * 0.01;
 
-    // 地面层使用不同的算法
+    // Ground layer uses different algorithms
     if (prop.isGround) {
         switch (style) {
             case 'ocean':
-                return prop.base + Math.sin(x * prop.freq * 1.5) * prop.amp * 0.8 + Math.cos(x * prop.freq * 0.5) * prop.amp * 0.5;
+                return prop.base + fbm(x * prop.freq * 0.8, 4, 0.4, 2.5) * prop.amp;
+            case 'canyons':
+                const canyonNoise = fbm(x * prop.freq * 0.5, 3, 0.6, 2);
+                const steps = Math.round(canyonNoise * 5) / 5;
+                return prop.base + steps * prop.amp * 1.2;
+            case 'floating_islands':
+                const islandVisibilityNoise = fbm(x * prop.freq * 0.3, 2, 0.5, 2);
+                if (islandVisibilityNoise > -0.1) {
+                    const islandShapeNoise = fbm(x * prop.freq * 1.5, 4, 0.4, 2.5);
+                    return prop.base + islandShapeNoise * prop.amp * 0.5;
+                } else {
+                    return h + 200; // Gap between islands
+                }
             case 'cityscape':
-                 const buildingCluster = Math.floor(x / 200);
-                 const noise = terrainNoise.get(buildingCluster * 0.5);
-                 if (noise > 0.4) {
-                     return prop.base - Math.pow(noise, 3) * prop.amp * 2;
-                 }
-                 return prop.base;
+                const buildingCluster = Math.floor(x / 150);
+                const clusterHeightNoise = fbm(buildingCluster * 0.3, 2, 0.5, 2);
+                const individualBuildingNoise = fbm(x * 0.05, 3, 0.4, 3);
+                const combinedNoise = (clusterHeightNoise + individualBuildingNoise) / 2;
+                if (combinedNoise > -0.3) {
+                    const height = Math.pow(combinedNoise + 0.3, 2.5) * prop.amp * 4;
+                    const antennaNoise = fbm(x * 2.5, 2, 0.8, 4);
+                    const antenna = antennaNoise > 0.7 ? (antennaNoise - 0.7) * 100 : 0;
+                    return prop.base - height - antenna;
+                }
+                return prop.base;
             default: // mountain, jagged, etc.
-                return prop.base + Math.sin(x * prop.freq) * prop.amp;
+                return prop.base + fbm(x * prop.freq, 5, 0.5, 2.2) * prop.amp * 0.8;
         }
     }
 
-    // 背景山脉层
+    // Background mountain layers
+    const octave = prop.isGround ? 6 : 5;
+    const persistence = 0.5;
+    const lacunarity = 2.2;
+    const baseFreq = prop.freq * (prop.isGround ? 1 : 0.5);
+
     switch (style) {
         case 'ocean':
-            noiseVal = terrainNoise.get(x * prop.freq * 0.5 + scroll) * prop.amp * 0.5;
-            noiseVal += Math.sin(x * prop.freq * 0.1 + scroll) * prop.amp * 0.3;
+            noiseVal = fbm(x * baseFreq + scroll, 4, 0.4, 3.0) * prop.amp * 0.6;
             break;
         case 'cityscape':
             const cluster = Math.floor(x / 150);
-            noiseVal = Math.pow(terrainNoise.get(cluster * 0.2 + scroll), 2) * prop.amp;
+            noiseVal = Math.pow(fbm(cluster * 0.2 + scroll, 2, 0.5, 2), 3) * prop.amp;
             break;
         case 'jagged':
-            noiseVal = (1 - Math.abs(terrainNoise.get(x * prop.freq + scroll) * 2 - 1)) * prop.amp;
-            noiseVal += (1- Math.abs(terrainNoise.get(x * prop.freq * 2.5 + scroll + 17) * 2 - 1)) * (prop.amp * 0.4);
+             // Use absolute value of noise to create sharp peaks and valleys
+            noiseVal = Math.abs(fbm(x * baseFreq + scroll, octave, persistence, lacunarity)) * prop.amp * 1.5;
+            // Add smaller, sharper noise for detail
+            noiseVal += Math.abs(fbm(x * baseFreq * 3.0 + scroll, 3, 0.3, 3.5)) * prop.amp * 0.3;
             break;
         case 'mountain':
         default:
-            noiseVal = terrainNoise.get(x * prop.freq + scroll) * prop.amp;
-            noiseVal += terrainNoise.get(x * prop.freq * 2.5 + scroll + 17) * (prop.amp * 0.4);
+            noiseVal = fbm(x * baseFreq + scroll, octave, persistence, lacunarity) * prop.amp;
+            // Add a second layer for more detail
+            noiseVal += fbm(x * baseFreq * 2.5 + scroll + 17, 4, 0.4, 2.0) * prop.amp * 0.4;
             break;
     }
     return prop.base - noiseVal;
@@ -2081,9 +2125,36 @@ function updateDistantEntities() {
         });
     }
 
+    // --- NEW MAJOR SCENE PERFORMANCES ---
+    if ((theme.tags.includes('dry') || theme.tags.includes('desolate')) && Math.random() < 0.005 && !state.distantEntities.some(e => e.type === 'sandworm')) {
+        state.distantEntities.push({
+            type: 'sandworm',
+            x: w + 400, y: h * 0.8, vx: -0.8, life: 1,
+            segments: 20, amplitude: 50, frequency: 0.05, timer: 0
+        });
+    }
+
+    if ((theme.tags.includes('magic') || theme.tags.includes('crystals')) && Math.random() < 0.01 && state.distantEntities.length < 5) {
+        state.distantEntities.push({
+            type: 'floating_crystal',
+            x: w + random(100, 300), y: random(h * 0.2, h * 0.7),
+            vx: -random(0.1, 0.3), life: 1, scale: random(0.5, 1.5),
+            rotation: random(0, Math.PI * 2), rotationSpeed: random(-0.01, 0.01),
+            glow: 0, glowSpeed: random(0.01, 0.03)
+        });
+    }
+     // Renamed from 'whale' to 'sky_whale' for clarity
+    if ((theme.tags.includes('heavenly') || theme.tags.includes('ocean')) && Math.random() < 0.005 && !state.distantEntities.some(e => e.type === 'sky_whale')) {
+        state.distantEntities.push({
+            type: 'sky_whale',
+            x: w + 300, y: random(h * 0.3, h * 0.7), vx: -0.15, life: 1, scale: random(1, 1.8)
+        });
+    }
+
+
     // 3. 更新实体状态
     state.distantEntities.forEach(e => {
-        if (e.type === 'fleet' || e.type === 'whale') {
+        if (e.type === 'fleet' || e.type === 'whale' || e.type === 'sky_whale' || e.type === 'sandworm' || e.type === 'floating_crystal') {
             e.x += e.vx;
         } else if (e.type === 'geyser') {
             if (e.y > e.maxHeight) {
@@ -2120,6 +2191,11 @@ function updateDistantEntities() {
         } else if (e.type === 'string_pluck') {
             e.amplitude *= 0.9; // 振幅衰减
             if (e.amplitude < 0.1) e.life = 0;
+        } else if (e.type === 'sandworm') {
+            e.timer += 0.02;
+        } else if (e.type === 'floating_crystal') {
+            e.rotation += e.rotationSpeed;
+            e.glow = Math.sin(performance.now() * 0.001 / e.glowSpeed) * 0.5 + 0.5;
         }
     });
 }
@@ -2133,14 +2209,66 @@ function drawDistantEntities(ctx, C) {
 
         switch(e.type) {
             case 'fleet':
-                ctx.fillStyle = '#ffffff'; // 白色船体
+                ctx.fillStyle = '#ffffff';
                 ctx.shadowBlur = 20;
                 ctx.shadowColor = C.sun;
-
-                // 绘制一个风格化的飞艇形状
                 ctx.beginPath();
                 ctx.ellipse(e.x, e.y, 80 * e.scale, 20 * e.scale, 0, 0, Math.PI * 2);
                 ctx.fill();
+                break;
+
+            case 'sky_whale':
+                ctx.fillStyle = `rgba(255, 255, 255, 0.1)`;
+                ctx.strokeStyle = `rgba(255, 255, 255, 0.2)`;
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 30;
+                ctx.shadowColor = C.sun;
+                ctx.beginPath();
+                ctx.moveTo(e.x, e.y);
+                const tailX = e.x - 300 * e.scale;
+                const tailY = e.y + 20 * e.scale;
+                ctx.bezierCurveTo(e.x - 100 * e.scale, e.y - 50 * e.scale, e.x - 200 * e.scale, e.y, tailX, tailY);
+                ctx.bezierCurveTo(e.x - 250 * e.scale, e.y + 60 * e.scale, e.x - 150 * e.scale, e.y + 40 * e.scale, e.x, e.y);
+                ctx.fill();
+                ctx.stroke();
+                break;
+
+            case 'sandworm':
+                ctx.fillStyle = C.mountFar;
+                ctx.strokeStyle = C.mountNear;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let i = 0; i < e.segments; i++) {
+                    const segX = e.x - i * 30;
+                    const segY = e.y + Math.sin(e.timer + i * e.frequency) * e.amplitude;
+                    const radius = 25 - i * 0.5;
+                    if (i === 0) {
+                        ctx.moveTo(segX, segY);
+                    } else {
+                        ctx.lineTo(segX, segY);
+                    }
+                }
+                ctx.stroke();
+                break;
+
+            case 'floating_crystal':
+                ctx.save();
+                ctx.translate(e.x, e.y);
+                ctx.rotate(e.rotation);
+                ctx.scale(e.scale, e.scale);
+                ctx.strokeStyle = C.accent;
+                ctx.fillStyle = `rgba(255, 255, 255, 0.2)`;
+                ctx.shadowBlur = 40 * e.glow;
+                ctx.shadowColor = C.accent;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(0, -50);
+                ctx.lineTo(30, 20);
+                ctx.lineTo(-30, 20);
+                ctx.closePath();
+                ctx.stroke();
+                ctx.fill();
+                ctx.restore();
                 break;
 
             case 'geyser':
