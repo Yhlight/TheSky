@@ -395,7 +395,7 @@ const CFG = {
     playerInitialX: 0.2,
     CHUNK_WIDTH: 1000,
     CHUNK_RESOLUTION: 20,
-    TERRAIN_LAYERS: 3,
+    TERRAIN_LAYERS: 5,
     PRE_GENERATION_RANGE: 2,
 };
 
@@ -481,13 +481,13 @@ function getGroundY(worldX) {
     const index1 = Math.floor(pointIndexFloat);
     const index2 = index1 + 1;
 
-    let pointData1 = chunk.layers[2]?.[index1];
-    let pointData2 = chunk.layers[2]?.[index2];
+    let pointData1 = chunk.layers[4]?.[index1];
+    let pointData2 = chunk.layers[4]?.[index2];
 
     if (!pointData2 && index2 >= CFG.CHUNK_RESOLUTION) {
         const nextChunk = state.terrain.chunks.get(chunkId + 1);
         if (nextChunk) {
-            pointData2 = nextChunk.layers[2]?.[0];
+            pointData2 = nextChunk.layers[4]?.[0];
         }
     }
 
@@ -647,7 +647,7 @@ const Director = {
         return { sky: [sky1, sky2], ground, mountNear, mountFar, accent, sun, fog };
     },
     generateParams: function() {
-        const availableTerrain = ['mountain', 'jagged', 'ocean', 'cityscape', 'canyons', 'floating_islands', 'bioluminescent_forest', 'crystal_desert'];
+        const availableTerrain = ['mountain', 'jagged', 'ocean', 'cityscape', 'canyons', 'floating_islands', 'bioluminescent_forest', 'crystal_desert', 'caves', 'peaks', 'inverted_arches'];
         return {
             sunSize: random(20, 150),
             sunY: random(0.15, 0.6),
@@ -1027,8 +1027,12 @@ function draw(timestamp) {
     ctx.restore();
 
     // --- 3. 多层视差地形 (从区块绘制) ---
+    const mountMid1 = lerpColor(C.mountNear, C.ground, 0.33);
+    const mountMid2 = lerpColor(C.mountNear, C.ground, 0.66);
     drawTerrainLayerFromChunks(ctx, C.mountFar, 0, progress);
     drawTerrainLayerFromChunks(ctx, C.mountNear, 1, progress);
+    drawTerrainLayerFromChunks(ctx, mountMid1, 2, progress);
+    drawTerrainLayerFromChunks(ctx, mountMid2, 3, progress);
 
     // --- 新增: 3.5 远景实体 ---
     drawDistantEntities(ctx, C);
@@ -1088,6 +1092,15 @@ function handleCinematicEvents() {
                 type: 'meteor' // 新的粒子类型
             });
         }
+    }
+
+    // World-shaking event
+    if (T1.tags.includes('hostile') && randomFn() < 0.005) {
+        // Simple screen shake effect
+        canvasRef.value.style.transform = `translate(${random(-5, 5)}px, ${random(-5, 5)}px)`;
+        setTimeout(() => {
+            canvasRef.value.style.transform = 'none';
+        }, 100);
     }
 }
 
@@ -1223,6 +1236,8 @@ function getTerrainLayerProperties(layerIndex) {
     const properties = [
         { speedScale: 0.2, amp: 120, base: h * 0.65, freq: 0.002, noiseScale: 1.0 }, // mountFar
         { speedScale: 0.4, amp: 100, base: h * 0.75, freq: 0.004, noiseScale: 1.2 }, // mountNear
+        { speedScale: 0.6, amp: 80, base: h * 0.8, freq: 0.006, noiseScale: 1.4 },  // NEW mid-ground 1
+        { speedScale: 0.8, amp: 50, base: h * 0.85, freq: 0.008, noiseScale: 1.6 },  // NEW mid-ground 2
         { speedScale: 1.0, amp: 30,  base: h * CFG.terrainBaseY, freq: 0.005, isGround: true } // ground
     ];
     return properties[layerIndex];
@@ -1271,6 +1286,24 @@ function generateNoiseValue(x, style, prop) {
                 const dunes = fbm(x * prop.freq * 0.5, 3, 0.4, 2) * prop.amp * 0.5;
                 const spikes = Math.pow(Math.abs(fbm(x * 0.1, 2, 0.8, 2.5)), 3) * prop.amp * 2;
                 return prop.base + dunes - (spikes > prop.amp * 0.2 ? spikes : 0);
+            case 'caves':
+                const caveNoise = fbm(x * prop.freq * 0.6, 3, 0.5, 2.2);
+                const caveOpening = Math.pow(Math.abs(fbm(x * 0.002, 2, 0.5, 2)), 0.5);
+                const ceiling = prop.base - 200 - caveOpening * 300;
+                const floor = prop.base + caveNoise * prop.amp;
+                // Alternate between ceiling and floor based on another noise value
+                const selector = fbm(x * 0.0015, 1, 0.5, 2);
+                return selector > 0 ? ceiling : floor;
+            case 'peaks':
+                 const peakShape = 1 - Math.abs(fbm(x * prop.freq * 0.8, 4, 0.5, 2.5));
+                 const peakHeight = Math.pow(peakShape, 5) * prop.amp * 2.5;
+                 const valleyFloor = fbm(x * prop.freq * 0.5, 3, 0.4, 2) * prop.amp * 0.3;
+                 return prop.base - peakHeight + valleyFloor;
+            case 'inverted_arches':
+                 const archBase = fbm(x * prop.freq * 0.4, 3, 0.6, 2) * prop.amp;
+                 const archShape = Math.sin(x * prop.freq * 5) * 50;
+                 const archMask = smoothstep(Math.abs(fbm(x * 0.002, 2, 0.5, 2)));
+                 return prop.base + archBase + archShape * archMask;
             default: // mountain, jagged, etc.
                 return prop.base + fbm(x * prop.freq, 5, 0.5, 2.2) * prop.amp * 0.8;
         }
@@ -1378,23 +1411,6 @@ function generateWorldEntities() {
     const speedProgress = speedRange > 0 ? (state.player.velocity.x - CFG.playerMinSpeed) / speedRange : 0;
     const particleDensity = lerp(0.05, 0.3, speedProgress);
 
-    // Props (相对稀疏)
-    if (randomFn() < 0.015) {
-        // *** 混合生成道具 ***
-        const T1 = state.currentTheme;
-        const T2 = state.nextTheme;
-        const propTheme = (randomFn() < state.transitionProgress) ? T2 : T1;
-
-        if (propTheme.propType !== 'none') {
-            state.props.push({
-                worldX: state.worldScrollX + w + 100, // 使用世界坐标
-                y: h * CFG.terrainBaseY - random(50, 150),
-                type: propTheme.propType,
-                scale: random(0.8, 1.5),
-                rot: random(0, Math.PI * 2)
-            });
-        }
-    }
 
     // Particles (密集且受速度影响)
     if (randomFn() < particleDensity) {
@@ -1952,7 +1968,7 @@ const PROP_DRAWERS = {
 
 function drawGroundAndProps(ctx, C, progress, timestamp) {
     // --- 从区块绘制地面 ---
-    drawTerrainLayerFromChunks(ctx, C.ground, 2, progress); // 2是地面的图层索引
+    drawTerrainLayerFromChunks(ctx, C.ground, 4, progress); // 4 is the ground layer index now
 
     // --- 新增：地之火 - 脉动的熔岩裂隙 ---
     const theme = state.currentTheme;
@@ -1975,7 +1991,7 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
         for (let id = startChunkId; id <= endChunkId; id++) {
             const chunk = state.terrain.chunks.get(id);
             if (!chunk) continue;
-            const layerData = chunk.layers[2]; // 地面层
+            const layerData = chunk.layers[4]; // ground layer
             if (!layerData) continue;
             for (let i = 0; i < layerData.length; i++) {
                 const worldX = chunk.worldX + i * step;
@@ -2253,9 +2269,47 @@ function updateDistantEntities() {
     }
 
 
+    if (theme.tags.includes('ruins') && randomFn() < 0.01 && !state.distantEntities.some(e => e.type === 'ancient_ruins')) {
+        state.distantEntities.push({
+            type: 'ancient_ruins',
+            x: w + random(200, 400),
+            y: h * 0.75,
+            vx: -0.1,
+            life: 1,
+            scale: random(0.8, 1.5)
+        });
+    }
+
+    if ((theme.tags.includes('cold') || theme.tags.includes('ice')) && randomFn() < 0.015) {
+        state.distantEntities.push({
+            type: 'ice_spires',
+            x: w + random(100, 300),
+            y: h * 0.8,
+            vx: -0.2,
+            life: 1,
+            scale: random(0.7, 1.3),
+            spires: Array.from({ length: Math.floor(random(3, 7)) }, () => ({
+                offsetX: random(-50, 50),
+                height: random(50, 200)
+            }))
+        });
+    }
+
+    if ((theme.tags.includes('forest') || theme.tags.includes('nature')) && randomFn() < 0.008 && !state.distantEntities.some(e => e.type === 'giant_trees')) {
+        state.distantEntities.push({
+            type: 'giant_trees',
+            x: w + random(300, 500),
+            y: h * 0.85,
+            vx: -0.15,
+            life: 1,
+            scale: random(1, 2)
+        });
+    }
+
+
     // 3. 更新实体状态
     state.distantEntities.forEach(e => {
-        if (e.type === 'fleet' || e.type === 'whale' || e.type === 'sky_whale' || e.type === 'sandworm' || e.type === 'floating_crystal' || e.type === 'fleet_of_ships') {
+        if (e.type === 'fleet' || e.type === 'whale' || e.type === 'sky_whale' || e.type === 'sandworm' || e.type === 'floating_crystal' || e.type === 'fleet_of_ships' || e.type === 'ancient_ruins' || e.type === 'ice_spires' || e.type === 'giant_trees') {
             e.x += e.vx;
         } else if (e.type === 'meteor_shower') {
             e.x += e.vx;
@@ -2500,6 +2554,60 @@ function drawDistantEntities(ctx, C) {
                 ctx.moveTo(e.x, 0);
                 ctx.quadraticCurveTo(e.x + Math.sin(e.life * 10) * e.amplitude, h / 2, e.x, h);
                 ctx.stroke();
+                break;
+
+            case 'ancient_ruins':
+                ctx.fillStyle = C.mountFar;
+                ctx.globalAlpha = 0.6 * e.life;
+                const baseX = e.x;
+                const baseY = e.y;
+                ctx.fillRect(baseX - 50 * e.scale, baseY - 100 * e.scale, 30 * e.scale, 100 * e.scale);
+                ctx.fillRect(baseX + 20 * e.scale, baseY - 80 * e.scale, 30 * e.scale, 80 * e.scale);
+                ctx.beginPath();
+                ctx.moveTo(baseX - 50 * e.scale, baseY - 100 * e.scale);
+                ctx.lineTo(baseX + 50 * e.scale, baseY - 100 * e.scale);
+                ctx.lineTo(baseX, baseY - 120 * e.scale);
+                ctx.closePath();
+                ctx.fill();
+                break;
+
+            case 'ice_spires':
+                ctx.fillStyle = `rgba(200, 220, 255, ${0.4 * e.life})`;
+                ctx.strokeStyle = `rgba(255, 255, 255, ${0.6 * e.life})`;
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = 'white';
+                e.spires.forEach(spire => {
+                    ctx.beginPath();
+                    ctx.moveTo(e.x + spire.offsetX * e.scale, e.y);
+                    ctx.lineTo(e.x + (spire.offsetX - 10) * e.scale, e.y - spire.height * 0.8 * e.scale);
+                    ctx.lineTo(e.x + spire.offsetX * e.scale, e.y - spire.height * e.scale);
+                    ctx.lineTo(e.x + (spire.offsetX + 10) * e.scale, e.y - spire.height * 0.8 * e.scale);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                });
+                break;
+
+            case 'giant_trees':
+                ctx.fillStyle = C.mountNear;
+                ctx.globalAlpha = 0.7 * e.life;
+                const treeBaseX = e.x;
+                const treeBaseY = e.y;
+                ctx.beginPath();
+                ctx.moveTo(treeBaseX - 40 * e.scale, treeBaseY);
+                ctx.bezierCurveTo(
+                    treeBaseX - 20 * e.scale, treeBaseY - 200 * e.scale,
+                    treeBaseX + 20 * e.scale, treeBaseY - 400 * e.scale,
+                    treeBaseX, treeBaseY - 600 * e.scale
+                );
+                 ctx.bezierCurveTo(
+                    treeBaseX - 20 * e.scale, treeBaseY - 400 * e.scale,
+                    treeBaseX + 20 * e.scale, treeBaseY - 200 * e.scale,
+                    treeBaseX + 40 * e.scale, treeBaseY
+                );
+                ctx.closePath();
+                ctx.fill();
                 break;
         }
     });
