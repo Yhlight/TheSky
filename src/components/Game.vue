@@ -1313,82 +1313,15 @@ function getTerrainLayerProperties(layerIndex) {
 }
 
 function generateTerrainPoints(x, style, prop) {
-    let floor = h, ceiling = 0;
-
-    switch (style) {
-        case 'ocean':
-            floor = prop.base - fbm(x * prop.freq, 6, 0.5, 2.1) * prop.amp;
-            ceiling = prop.ceilingBase + fbm(x * prop.ceilingFreq, 4, 0.6, 2.2) * prop.ceilingAmp;
-            break;
-
-        case 'caves':
-            const caveSystemMask = fbm(x * 0.0008, 3, 0.5, 2.0);
-            if (caveSystemMask > -0.1) {
-                const caveNoise = fbm(x * prop.freq * 1.2, 4, 0.5, 2.0);
-                const caveHeight = (1 - Math.abs(caveNoise)) * prop.amp * 1.5;
-                const verticalOffset = fbm(x * 0.0015, 2, 0.5, 2.0) * (h * 0.4);
-                const midPoint = h / 2 + verticalOffset;
-                floor = midPoint + caveHeight / 2;
-                ceiling = midPoint - caveHeight / 2;
-            } else {
-                floor = h + 200;
-                ceiling = -200;
-            }
-            break;
-
-        case 'peaks':
-            const peakNoise = 1 - Math.abs(fbm(x * prop.freq * 0.5, 5, 0.5, 2.5));
-            const peakHeight = Math.pow(peakNoise, 4) * prop.amp * 2.5;
-            floor = prop.base - peakHeight;
-            ceiling = -h;
-            break;
-
-        case 'cityscape':
-            const streetLevel = prop.base;
-            const buildingClusterX = Math.floor(x / 200);
-            const clusterMask = fbm(buildingClusterX * 0.2, 2, 0.5, 2.0);
-            if (clusterMask > -0.2) {
-                const buildingX = Math.floor(x / 70);
-                const buildingNoise = fbm(buildingX * 0.3, 2, 0.5, 2.0);
-                const height = Math.pow(buildingNoise, 2) * prop.amp;
-                floor = streetLevel - height;
-                ceiling = floor - 20 - Math.sin(buildingX) * 10;
-            } else {
-                floor = streetLevel;
-                ceiling = -h;
-            }
-            break;
-
-        case 'inverted_arches':
-            floor = prop.base - fbm(x * prop.freq, 6, 0.5, 2.2) * prop.amp;
-            const archMask = Math.pow(fbm(x * 0.002, 3, 0.5, 2.0), 3);
-            if (archMask > 0) {
-                ceiling = prop.ceilingBase + archMask * prop.ceilingAmp;
-            } else {
-                ceiling = -h;
-            }
-            break;
-
-        default: // mountain, jagged
-            floor = prop.base - fbm(x * prop.freq, 7, 0.5, 2.2) * prop.amp;
-            if (prop.ceiling) {
-                ceiling = prop.ceilingBase + fbm(x * prop.ceilingFreq, 5, 0.45, 2.3) * prop.ceilingAmp;
-            } else {
-                ceiling = -h;
-            }
-            break;
-    }
-
-    if (!prop.ceiling) {
-        ceiling = -h * 2;
-    }
-
-    if (floor < ceiling + 200) {
-        floor = ceiling + 200;
-    }
+    let floor = h * 0.8;
+    let ceiling = h * 0.2;
 
     if (prop.isGround) {
-        ceiling = h * 2;
+        floor = h * 0.9;
+        ceiling = h * 2; // Push ceiling way off screen for ground layer
+    } else if (!prop.ceiling) {
+        floor = h * 0.7;
+        ceiling = -h * 2; // Push ceiling way off screen for non-ceiling layers
     }
 
     return { floor, ceiling };
@@ -1710,22 +1643,25 @@ function drawTerrainLayerFromChunks(ctx, color, layerIndex, progress) {
     ctx.fill();
 
     // --- Draw Ceiling ---
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    for (let id = startChunkId; id <= endChunkId; id++) {
-        const chunk = state.terrain.chunks.get(id);
-        if (!chunk) continue;
-        const layer = chunk.layers[layerIndex];
-        if (!layer || !layer.ceilingPoints) continue;
-        for (let i = 0; i < layer.ceilingPoints.length; i++) {
-            const pointData = layer.ceilingPoints[i];
-            const screenX = chunk.worldX + i * step - state.worldScrollX;
-            const y = lerp(pointData.y1, pointData.y2, progress);
-            ctx.lineTo(screenX, y);
+    const prop = getTerrainLayerProperties(layerIndex);
+    if (prop.ceiling && !prop.isGround) {
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        for (let id = startChunkId; id <= endChunkId; id++) {
+            const chunk = state.terrain.chunks.get(id);
+            if (!chunk) continue;
+            const layer = chunk.layers[layerIndex];
+            if (!layer || !layer.ceilingPoints) continue;
+            for (let i = 0; i < layer.ceilingPoints.length; i++) {
+                const pointData = layer.ceilingPoints[i];
+                const screenX = chunk.worldX + i * step - state.worldScrollX;
+                const y = lerp(pointData.y1, pointData.y2, progress);
+                ctx.lineTo(screenX, y);
+            }
         }
+        ctx.lineTo(w, 0);
+        ctx.fill();
     }
-    ctx.lineTo(w, 0);
-    ctx.fill();
 }
 
 const PROP_DRAWERS = {
