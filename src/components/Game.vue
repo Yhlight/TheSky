@@ -19,7 +19,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue';
-import { createSeededRandom, reseedPermutation, fbm } from '../utils/noise.js';
+import { createSeededRandom, reseedPermutation, fbm, noise } from '../utils/noise.js';
 
 // Vue template refs
 const canvasRef = ref(null);
@@ -900,7 +900,7 @@ function update(deltaTime, timestamp) {
         p.y = groundY - 10;
         p.velocity.y *= -0.4; // Bounce
     }
-    if (ceilingY !== null && p.y < ceilingY + 10) {
+    if (ceilingY !== null && groundY !== null && ceilingY < groundY && p.y < ceilingY + 10) {
         p.y = ceilingY + 10;
         p.velocity.y *= -0.4; // Bounce
     }
@@ -1101,8 +1101,6 @@ function draw(timestamp) {
     drawNpcs(ctx, C);
 
     // --- 7. 玩家 (光之丝带) ---
-    drawPlayer(ctx, C);
-
     // --- 8. 前景粒子 ---
     drawParticles(ctx, C, 1.0); // 前景粒子最清晰
 
@@ -1313,15 +1311,38 @@ function getTerrainLayerProperties(layerIndex) {
 }
 
 function generateTerrainPoints(x, style, prop) {
-    let floor = h * 0.8;
-    let ceiling = h * 0.2;
+    let floor, ceiling;
+    const baseFreq = prop.freq;
+    const baseAmp = prop.amp;
+
+    switch (style) {
+        case 'caves':
+            const caveNoise = fbm(x * baseFreq * 0.5, 4, 0.5, 2.0);
+            const caveOpening = 200 + (noise(x * 0.0005) + 1) * 150; // Wider, more open caves
+            const center = prop.base + caveNoise * baseAmp;
+            floor = center + caveOpening;
+            ceiling = center - caveOpening;
+            break;
+        case 'peaks':
+            const peakNoise = fbm(x * baseFreq * 2.0, 3, 0.4, 2.5);
+            const invertedPeak = 1.0 - Math.abs(peakNoise); // Creates sharp valleys and peaks
+            floor = prop.base + invertedPeak * baseAmp * 1.5;
+            ceiling = -h; // No ceiling for peaks style
+            break;
+        case 'jagged':
+        case 'mountain':
+        default:
+            floor = prop.base + fbm(x * baseFreq, 5, 0.5, 2.0) * baseAmp;
+            if (prop.ceiling) {
+                ceiling = prop.ceilingBase + fbm(x * prop.ceilingFreq, 4, 0.6, 2.0) * prop.ceilingAmp;
+            } else {
+                ceiling = -h; // Effectively no ceiling
+            }
+            break;
+    }
 
     if (prop.isGround) {
-        floor = h * 0.9;
-        ceiling = h * 2; // Push ceiling way off screen for ground layer
-    } else if (!prop.ceiling) {
-        floor = h * 0.7;
-        ceiling = -h * 2; // Push ceiling way off screen for non-ceiling layers
+        ceiling = h + 100; // Ensure ground layer has no visible ceiling
     }
 
     return { floor, ceiling };
