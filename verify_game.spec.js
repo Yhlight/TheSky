@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test('visually verify game smoothness and style', async ({ page }) => {
+  // Listen for console logs
+  page.on('console', msg => console.log(msg.text()));
+
   // Navigate to the locally served game from Vite with a fixed seed
   await page.goto('http://localhost:5173/?seed=12345');
   await page.waitForLoadState('networkidle');

@@ -1314,54 +1314,62 @@ function getTerrainLayerProperties(layerIndex) {
 
 function generateTerrainPoints(x, style, prop) {
     let floor = h, ceiling = 0;
-    const scroll = x * prop.speedScale * 0.01;
 
-    // --- Unified Generation Logic ---
     switch (style) {
         case 'ocean':
-            floor = prop.base + fbm(x * prop.freq, 6, 0.5, 2.1) * prop.amp;
+            floor = prop.base - fbm(x * prop.freq, 6, 0.5, 2.1) * prop.amp;
             ceiling = prop.ceilingBase + fbm(x * prop.ceilingFreq, 4, 0.6, 2.2) * prop.ceilingAmp;
             break;
 
         case 'caves':
-            const caveNoise = fbm(x * prop.freq, 5, 0.5, 2.0);
-            const caveSystemMask = fbm(x * 0.001, 3, 0.5, 2.0);
-            if (caveSystemMask > -0.2) {
-                const caveHeight = (1 - Math.abs(caveNoise)) * prop.amp;
-                const verticalOffset = fbm(x * 0.002, 2, 0.5, 2.0) * (h * 0.3);
+            const caveSystemMask = fbm(x * 0.0008, 3, 0.5, 2.0);
+            if (caveSystemMask > -0.1) {
+                const caveNoise = fbm(x * prop.freq * 1.2, 4, 0.5, 2.0);
+                const caveHeight = (1 - Math.abs(caveNoise)) * prop.amp * 1.5;
+                const verticalOffset = fbm(x * 0.0015, 2, 0.5, 2.0) * (h * 0.4);
                 const midPoint = h / 2 + verticalOffset;
                 floor = midPoint + caveHeight / 2;
                 ceiling = midPoint - caveHeight / 2;
-            } else { // Open area between cave systems
-                floor = h + 100;
-                ceiling = -100;
+            } else {
+                floor = h + 200;
+                ceiling = -200;
             }
             break;
 
         case 'peaks':
-            const peakNoise = 1 - Math.abs(fbm(x * prop.freq, 5, 0.5, 2.5));
-            const peakHeight = Math.pow(peakNoise, 3) * prop.amp * 2;
+            const peakNoise = 1 - Math.abs(fbm(x * prop.freq * 0.5, 5, 0.5, 2.5));
+            const peakHeight = Math.pow(peakNoise, 4) * prop.amp * 2.5;
             floor = prop.base - peakHeight;
-            ceiling = -h; // High ceilings for open sky
+            ceiling = -h;
             break;
 
         case 'cityscape':
-            const buildingX = Math.floor(x / 80);
-            const buildingNoise = fbm(buildingX * 0.1, 2, 0.5, 2);
-            if (buildingNoise > -0.3) {
-                const height = Math.pow(buildingNoise + 0.3, 2) * prop.amp;
-                floor = prop.base - height;
-                const rooftopDetail = Math.sin(buildingX * 5) * 10;
-                ceiling = floor - 50 - rooftopDetail; // Create gaps between buildings
+            const streetLevel = prop.base;
+            const buildingClusterX = Math.floor(x / 200);
+            const clusterMask = fbm(buildingClusterX * 0.2, 2, 0.5, 2.0);
+            if (clusterMask > -0.2) {
+                const buildingX = Math.floor(x / 70);
+                const buildingNoise = fbm(buildingX * 0.3, 2, 0.5, 2.0);
+                const height = Math.pow(buildingNoise, 2) * prop.amp;
+                floor = streetLevel - height;
+                ceiling = floor - 20 - Math.sin(buildingX) * 10;
             } else {
-                floor = prop.base;
-                ceiling = prop.base - 20;
+                floor = streetLevel;
+                ceiling = -h;
             }
             break;
 
-        // ... Add more styles later ...
+        case 'inverted_arches':
+            floor = prop.base - fbm(x * prop.freq, 6, 0.5, 2.2) * prop.amp;
+            const archMask = Math.pow(fbm(x * 0.002, 3, 0.5, 2.0), 3);
+            if (archMask > 0) {
+                ceiling = prop.ceilingBase + archMask * prop.ceilingAmp;
+            } else {
+                ceiling = -h;
+            }
+            break;
 
-        default: // Standard 'mountain' or 'jagged' terrain
+        default: // mountain, jagged
             floor = prop.base - fbm(x * prop.freq, 7, 0.5, 2.2) * prop.amp;
             if (prop.ceiling) {
                 ceiling = prop.ceilingBase + fbm(x * prop.ceilingFreq, 5, 0.45, 2.3) * prop.ceilingAmp;
@@ -1371,20 +1379,17 @@ function generateTerrainPoints(x, style, prop) {
             break;
     }
 
-    // Final checks and adjustments
     if (!prop.ceiling) {
-        ceiling = -h * 2; // Push ceiling far off-screen if disabled
+        ceiling = -h * 2;
     }
 
-    if (floor < ceiling + 150) { // Ensure a minimum vertical space
-        floor = ceiling + 150;
+    if (floor < ceiling + 200) {
+        floor = ceiling + 200;
     }
 
-    // For the absolute foreground, never have a ceiling
     if (prop.isGround) {
         ceiling = h * 2;
     }
-
 
     return { floor, ceiling };
 }
