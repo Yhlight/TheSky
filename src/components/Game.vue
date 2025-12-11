@@ -386,10 +386,10 @@ const CFG = {
     playerMinSpeed: 4,
     playerMaxSpeed: 35,
     playerThrust: 0.3,
+    playerVerticalThrust: 0.3,
+    gravity: 0.15,
     dragCoefficient: 0.99,
     windForceScale: 0.1,
-    hoverForce: 0.01,
-    hoverDamping: 0.95,
     transitionFrames: 350,
     terrainBaseY: 0.9,
     playerInitialX: 0.2,
@@ -842,6 +842,7 @@ function update(deltaTime, timestamp) {
     // a) 玩家推力
     if (state.isAccelerating) {
         p.acceleration.x += CFG.playerThrust;
+        p.acceleration.y -= CFG.playerVerticalThrust; // Go up
     }
 
     // b) 风力 (持续变化, 使用原始timestamp)
@@ -850,10 +851,8 @@ function update(deltaTime, timestamp) {
     p.acceleration.x += windX * CFG.windForceScale;
     p.acceleration.y += windY * CFG.windForceScale;
 
-    // c) 悬浮/回中力 (使其保持在屏幕中央)
-    const hoverTargetY = h / 2;
-    const displacementY = hoverTargetY - p.y;
-    p.acceleration.y += displacementY * CFG.hoverForce;
+    // c) 重力
+    p.acceleration.y += CFG.gravity;
 
     // --- 2. 更新速度和位置 (使用dt保证帧率无关) ---
     // a) 根据加速度更新速度
@@ -862,7 +861,7 @@ function update(deltaTime, timestamp) {
 
     // b) 应用阻力 (帧率无关)
     p.velocity.x *= Math.pow(CFG.dragCoefficient, dt);
-    p.velocity.y *= Math.pow(CFG.hoverDamping, dt); // 垂直方向使用不同的阻尼
+    p.velocity.y *= Math.pow(CFG.dragCoefficient, dt); // 统一阻力
 
     // c) 限制最大/最小速度
     p.velocity.x = Math.min(p.velocity.x, CFG.playerMaxSpeed);
@@ -880,17 +879,17 @@ function update(deltaTime, timestamp) {
 
     // e) 根据速度更新位置
     p.y += p.velocity.y * dt;
+    // p.x is now static, the world scrolls under it
+    p.x = w * CFG.playerInitialX;
 
     // 修正玩家的横向位置，使其感觉在“前进”而不是“移动”
-    const speedProgress = Math.max(0, p.velocity.x / CFG.playerMaxSpeed);
-    let targetX = w * CFG.playerInitialX + lerp(0, w * 0.15, speedProgress);
+    // const speedProgress = Math.max(0, p.velocity.x / CFG.playerMaxSpeed);
+    // let targetX = w * CFG.playerInitialX + lerp(0, w * 0.15, speedProgress);
 
     // 新逻辑：确保玩家在屏幕上的 X 位置永远不会减少 (帧率无关)
-    if (targetX > p.x) {
-        p.x = lerp(p.x, targetX, 1 - Math.pow(1 - 0.02, dt));
-    }
-    // 如果 targetX <= p.x (减速时发生)，我们什么都不做。
-    // 这会使玩家角色在屏幕上保持其最远的推进位置，从而避免了“背景回退”的视觉问题。
+    // if (targetX > p.x) {
+    //     p.x = lerp(p.x, targetX, 1 - Math.pow(1 - 0.02, dt));
+    // }
 
     // e) 边界检查
     const groundY = getGroundY(state.worldScrollX + p.x);
