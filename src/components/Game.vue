@@ -481,13 +481,13 @@ function getGroundY(worldX) {
     const index1 = Math.floor(pointIndexFloat);
     const index2 = index1 + 1;
 
-    let pointData1 = chunk.layers[4]?.floorPoints[index1];
-    let pointData2 = chunk.layers[4]?.floorPoints[index2];
+    let pointData1 = chunk.layers[3]?.floorPoints[index1];
+    let pointData2 = chunk.layers[3]?.floorPoints[index2];
 
     if (!pointData2 && index2 >= CFG.CHUNK_RESOLUTION) {
         const nextChunk = state.terrain.chunks.get(chunkId + 1);
         if (nextChunk) {
-            pointData2 = nextChunk.layers[4]?.floorPoints[0];
+            pointData2 = nextChunk.layers[3]?.floorPoints[0];
         }
     }
 
@@ -498,6 +498,37 @@ function getGroundY(worldX) {
         return lerp(y1, y2, t);
     }
 
+    return null;
+}
+
+function getCeilingY(worldX) {
+    const progress = state.transitionProgress;
+    const chunkId = Math.floor(worldX / CFG.CHUNK_WIDTH);
+    const chunk = state.terrain.chunks.get(chunkId);
+    if (!chunk) return null;
+
+    const step = CFG.CHUNK_WIDTH / CFG.CHUNK_RESOLUTION;
+    const xInChunk = worldX - chunk.worldX;
+    const pointIndexFloat = xInChunk / step;
+    const index1 = Math.floor(pointIndexFloat);
+    const index2 = index1 + 1;
+
+    let pointData1 = chunk.layers[3]?.ceilingPoints[index1];
+    let pointData2 = chunk.layers[3]?.ceilingPoints[index2];
+
+    if (!pointData2 && index2 >= CFG.CHUNK_RESOLUTION) {
+        const nextChunk = state.terrain.chunks.get(chunkId + 1);
+        if (nextChunk) {
+            pointData2 = nextChunk.layers[3]?.ceilingPoints[0];
+        }
+    }
+
+    if (pointData1 && pointData2) {
+        const t = pointIndexFloat - index1;
+        const y1 = lerp(pointData1.y1, pointData1.y2, progress);
+        const y2 = lerp(pointData2.y1, pointData2.y2, progress);
+        return lerp(y1, y2, t);
+    }
     return null;
 }
 
@@ -862,8 +893,17 @@ function update(deltaTime, timestamp) {
     // 这会使玩家角色在屏幕上保持其最远的推进位置，从而避免了“背景回退”的视觉问题。
 
     // e) 边界检查
-    if (p.y < h * 0.1) { p.y = h * 0.1; p.velocity.y *= -0.5; } // 碰撞反弹
-    if (p.y > h * 0.9) { p.y = h * 0.9; p.velocity.y *= -0.5; }
+    const groundY = getGroundY(state.worldScrollX + p.x);
+    const ceilingY = getCeilingY(state.worldScrollX + p.x);
+
+    if (groundY !== null && p.y > groundY - 10) {
+        p.y = groundY - 10;
+        p.velocity.y *= -0.4; // Bounce
+    }
+    if (ceilingY !== null && p.y < ceilingY + 10) {
+        p.y = ceilingY + 10;
+        p.velocity.y *= -0.4; // Bounce
+    }
 
     // --- 3. 更新拖尾 ---
     state.player.trail.push({ x: state.player.x, y: state.player.y, speed: state.player.velocity.x });
@@ -1035,6 +1075,7 @@ function draw(timestamp) {
     drawTerrainLayerFromChunks(ctx, C.mountNear, 1, progress);
     drawTerrainLayerFromChunks(ctx, mountMid1, 2, progress);
     drawTerrainLayerFromChunks(ctx, mountMid2, 3, progress);
+    drawTerrainLayerFromChunks(ctx, C.ground, 4, progress);
 
     // --- 新增: 3.5 远景实体 ---
     drawDistantEntities(ctx, C);
@@ -1234,13 +1275,39 @@ function updateWeather() {
 }
 
 function getTerrainLayerProperties(layerIndex) {
-    // 定义每一层地形的视觉属性
+    // Define the visual properties for each terrain layer
     const properties = [
-        { speedScale: 0.2, amp: 120, base: h * 0.65, freq: 0.002, noiseScale: 1.0, ceiling: false }, // mountFar
-        { speedScale: 0.4, amp: 100, base: h * 0.75, freq: 0.004, noiseScale: 1.2, ceiling: false }, // mountNear
-        { speedScale: 0.6, amp: 80, base: h * 0.8, freq: 0.006, noiseScale: 1.4, ceiling: true },  // NEW mid-ground 1
-        { speedScale: 0.8, amp: 50, base: h * 0.85, freq: 0.008, noiseScale: 1.6, ceiling: true },  // NEW mid-ground 2
-        { speedScale: 1.0, amp: 30,  base: h * CFG.terrainBaseY, freq: 0.005, isGround: true, ceiling: true } // ground
+        // Farthest background layer - distant mountains, less detail
+        {
+            speedScale: 0.2,
+            base: h * 0.7, amp: 150, freq: 0.001,
+            ceiling: false
+        },
+        // Mid-background layer - closer mountains, more detail
+        {
+            speedScale: 0.4,
+            base: h * 0.8, amp: 200, freq: 0.002,
+            ceiling: false
+        },
+        // Mid-ground layer - detailed hills and potential for upper structures
+        {
+            speedScale: 0.7,
+            base: h * 0.9, amp: 250, freq: 0.004,
+            ceiling: true, ceilingBase: h * 0.1, ceilingAmp: 100, ceilingFreq: 0.003
+        },
+        // Foreground layer - main gameplay area with complex geometry
+        {
+            speedScale: 1.0,
+            base: h, amp: 350, freq: 0.008,
+            ceiling: true, ceilingBase: 0, ceilingAmp: 250, ceilingFreq: 0.006,
+            isGround: true
+        },
+        // Closest foreground layer - small details and ground clutter
+        {
+            speedScale: 1.2,
+            base: h * 1.1, amp: 50, freq: 0.02,
+            ceiling: true, ceilingBase: -50, ceilingAmp: 40, ceilingFreq: 0.015
+        }
     ];
     return properties[layerIndex];
 }
@@ -1249,48 +1316,75 @@ function generateTerrainPoints(x, style, prop) {
     let floor = h, ceiling = 0;
     const scroll = x * prop.speedScale * 0.01;
 
-    // --- Floor Generation ---
-    let floorNoise;
+    // --- Unified Generation Logic ---
     switch (style) {
         case 'ocean':
-            floorNoise = fbm(x * prop.freq * 0.8, 4, 0.4, 2.5) * prop.amp;
+            floor = prop.base + fbm(x * prop.freq, 6, 0.5, 2.1) * prop.amp;
+            ceiling = prop.ceilingBase + fbm(x * prop.ceilingFreq, 4, 0.6, 2.2) * prop.ceilingAmp;
             break;
-        // ... (add other floor styles)
-        default:
-            floorNoise = fbm(x * prop.freq, 5, 0.5, 2.2) * prop.amp * 0.8;
+
+        case 'caves':
+            const caveNoise = fbm(x * prop.freq, 5, 0.5, 2.0);
+            const caveSystemMask = fbm(x * 0.001, 3, 0.5, 2.0);
+            if (caveSystemMask > -0.2) {
+                const caveHeight = (1 - Math.abs(caveNoise)) * prop.amp;
+                const verticalOffset = fbm(x * 0.002, 2, 0.5, 2.0) * (h * 0.3);
+                const midPoint = h / 2 + verticalOffset;
+                floor = midPoint + caveHeight / 2;
+                ceiling = midPoint - caveHeight / 2;
+            } else { // Open area between cave systems
+                floor = h + 100;
+                ceiling = -100;
+            }
+            break;
+
+        case 'peaks':
+            const peakNoise = 1 - Math.abs(fbm(x * prop.freq, 5, 0.5, 2.5));
+            const peakHeight = Math.pow(peakNoise, 3) * prop.amp * 2;
+            floor = prop.base - peakHeight;
+            ceiling = -h; // High ceilings for open sky
+            break;
+
+        case 'cityscape':
+            const buildingX = Math.floor(x / 80);
+            const buildingNoise = fbm(buildingX * 0.1, 2, 0.5, 2);
+            if (buildingNoise > -0.3) {
+                const height = Math.pow(buildingNoise + 0.3, 2) * prop.amp;
+                floor = prop.base - height;
+                const rooftopDetail = Math.sin(buildingX * 5) * 10;
+                ceiling = floor - 50 - rooftopDetail; // Create gaps between buildings
+            } else {
+                floor = prop.base;
+                ceiling = prop.base - 20;
+            }
+            break;
+
+        // ... Add more styles later ...
+
+        default: // Standard 'mountain' or 'jagged' terrain
+            floor = prop.base - fbm(x * prop.freq, 7, 0.5, 2.2) * prop.amp;
+            if (prop.ceiling) {
+                ceiling = prop.ceilingBase + fbm(x * prop.ceilingFreq, 5, 0.45, 2.3) * prop.ceilingAmp;
+            } else {
+                ceiling = -h;
+            }
             break;
     }
-    floor = prop.base + floorNoise;
 
-    // --- Ceiling Generation ---
-    if (prop.ceiling) {
-        let ceilingNoise;
-        switch (style) {
-            case 'caves':
-                const caveShape = fbm(x * prop.freq * 0.6, 3, 0.5, 2.2) * prop.amp;
-                const caveOpening = Math.pow(fbm(x * 0.002, 2, 0.5, 2), 2) * (h * 0.8);
-                floor = prop.base + caveShape;
-                ceiling = floor - caveOpening - 150; // Ensure a minimum gap
-                break;
-            case 'peaks':
-                const peakShape = Math.pow(1 - Math.abs(fbm(x * prop.freq * 0.8, 4, 0.5, 2.5)), 5) * (h * 1.5);
-                floor = prop.base + fbm(x * prop.freq * 0.5, 3, 0.4, 2) * prop.amp * 0.3 - peakShape;
-                ceiling = -h; // Effectively no ceiling
-                break;
-            // ... (add other ceiling styles)
-            default:
-                ceilingNoise = fbm(x * prop.freq + 100, 5, 0.5, 2.2) * prop.amp;
-                ceiling = prop.base - h * 0.4 + ceilingNoise;
-                break;
-        }
-    } else {
-        ceiling = -h; // No ceiling for this layer
+    // Final checks and adjustments
+    if (!prop.ceiling) {
+        ceiling = -h * 2; // Push ceiling far off-screen if disabled
     }
 
-    // Ensure floor is always below ceiling
-    if (floor < ceiling + 100) {
-        floor = ceiling + 100;
+    if (floor < ceiling + 150) { // Ensure a minimum vertical space
+        floor = ceiling + 150;
     }
+
+    // For the absolute foreground, never have a ceiling
+    if (prop.isGround) {
+        ceiling = h * 2;
+    }
+
 
     return { floor, ceiling };
 }
@@ -1929,7 +2023,7 @@ const PROP_DRAWERS = {
 
 function drawGroundAndProps(ctx, C, progress, timestamp) {
     // --- 从区块绘制地面 ---
-    drawTerrainLayerFromChunks(ctx, C.ground, 4, progress); // 4 is the ground layer index now
+    drawTerrainLayerFromChunks(ctx, C.ground, 3, progress);
 
     // --- 新增：地之火 - 脉动的熔岩裂隙 ---
     const theme = state.currentTheme;
@@ -1952,7 +2046,7 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
         for (let id = startChunkId; id <= endChunkId; id++) {
             const chunk = state.terrain.chunks.get(id);
             if (!chunk) continue;
-    const layer = chunk.layers[4]; // ground layer
+const layer = chunk.layers[3]; // ground layer
     if (!layer || !layer.floorPoints) continue;
     for (let i = 0; i < layer.floorPoints.length; i++) {
                 const worldX = chunk.worldX + i * step;
