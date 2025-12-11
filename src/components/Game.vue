@@ -2013,7 +2013,7 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
         ctx.save();
         ctx.translate(x, groundY);
         ctx.scale(p.scale, p.scale);
-        ctx.rotate(p.rot);
+        // ctx.rotate(p.rot); // 禁用以确保静态
 
 
         ctx.shadowBlur = 10;
