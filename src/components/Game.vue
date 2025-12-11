@@ -19,6 +19,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue';
+import { createSeededRandom, reseedPermutation, fbm } from '../utils/noise.js';
 
 // Vue template refs
 const canvasRef = ref(null);
@@ -461,6 +462,9 @@ const lerpColor = (c1, c2, t) => {
 // --- Seeded Random Number Generator ---
 // Using a simple LCG (Linear Congruential Generator) for determinism
 let SEED = Math.random();
+let randomFn;
+const random = (min, max) => randomFn() * (max - min) + min;
+
 
 function getGroundY(worldX) {
     const progress = state.transitionProgress;
@@ -496,51 +500,9 @@ function getGroundY(worldX) {
 
     return null;
 }
-function createSeededRandom(seed) {
-    let state = seed;
-    return () => {
-        state = (state * 9301 + 49297) % 233280;
-        return state / 233280;
-    };
-}
-let randomFn = createSeededRandom(SEED);
-
-const random = (min, max) => randomFn() * (max - min) + min;
-
-
-// --- Advanced Noise Generation ---
-const PERMUTATION = Array.from({ length: 256 }, (_, i) => i);
-for (let i = PERMUTATION.length - 1; i > 0; i--) {
-    const j = Math.floor(randomFn() * (i + 1));
-    [PERMUTATION[i], PERMUTATION[j]] = [PERMUTATION[j], PERMUTATION[i]];
-}
-const P = [...PERMUTATION, ...PERMUTATION];
-
-const quintic = t => t * t * t * (t * (t * 6 - 15) + 10);
-const grad = (hash, x) => (hash & 1) === 0 ? x : -x;
-const noise = x => {
-    const X = Math.floor(x) & 255;
-    x -= Math.floor(x);
-    const u = quintic(x);
-    return lerp(grad(P[X], x), grad(P[X + 1], x - 1), u) * 2;
-};
-
-const fbm = (x, octaves, persistence, lacunarity) => {
-    let total = 0;
-    let frequency = 1;
-    let amplitude = 1;
-    let maxValue = 0;
-    for (let i = 0; i < octaves; i++) {
-        total += noise(x * frequency) * amplitude;
-        maxValue += amplitude;
-        amplitude *= persistence;
-        frequency *= lacunarity;
-    }
-    return total / maxValue;
-};
 
 // Re-seedable random for consistent wind patterns
-let windSeed = randomFn();
+let windSeed;
 const seededRandom = () => {
     const x = Math.sin(windSeed++) * 10000;
     return x - Math.floor(x);
@@ -2560,6 +2522,8 @@ onMounted(() => {
         console.log(`Using random seed: ${SEED}`);
     }
     randomFn = createSeededRandom(SEED);
+    reseedPermutation(SEED);
+    windSeed = randomFn();
 
 
     Director.init();
