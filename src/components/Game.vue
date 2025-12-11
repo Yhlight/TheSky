@@ -2033,17 +2033,15 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
     // --- 新增：地之火 - 脉动的熔岩裂隙 ---
     const theme = state.currentTheme;
     if (theme.tags.includes('fire')) {
-        const pulseAlpha = 0.6 + Math.sin(timestamp / 400) * 0.4; // 脉动透明度
+        const pulseAlpha = 0.6 + Math.sin(timestamp / 200) * 0.4; // Faster pulse
 
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         ctx.strokeStyle = `rgba(255, 172, 61, ${pulseAlpha})`;
-        ctx.lineWidth = 3;
-        ctx.shadowBlur = 20;
+        ctx.lineWidth = 4; // Thicker
+        ctx.shadowBlur = 25;
         ctx.shadowColor = C.accent;
 
-        // 复用地形绘制逻辑来画裂隙，但使用不同的路径
-        ctx.beginPath();
         const startChunkId = Math.floor(state.worldScrollX / CFG.CHUNK_WIDTH);
         const endChunkId = Math.floor((state.worldScrollX + w) / CFG.CHUNK_WIDTH);
         const step = CFG.CHUNK_WIDTH / CFG.CHUNK_RESOLUTION;
@@ -2051,28 +2049,38 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
         for (let id = startChunkId; id <= endChunkId; id++) {
             const chunk = state.terrain.chunks.get(id);
             if (!chunk) continue;
-const layer = chunk.layers[3]; // ground layer
-    if (!layer || !layer.floorPoints) continue;
-    for (let i = 0; i < layer.floorPoints.length; i++) {
+
+            const layer = chunk.layers[3]; // ground layer
+            if (!layer || !layer.floorPoints || layer.floorPoints.length === 0) continue;
+
+            ctx.beginPath();
+            let firstPoint = true;
+
+            for (let i = 0; i < layer.floorPoints.length; i++) {
                 const worldX = chunk.worldX + i * step;
                 const groundY = getGroundY(worldX);
+
                 if (groundY !== null) {
                     const screenX = worldX - state.worldScrollX;
-                    // 稍微偏移裂隙，使其看起来在地面之下
-                    ctx.lineTo(screenX, groundY + 5 + Math.sin(i * 0.5) * 2);
+                    const yOffset = 5 + Math.sin(worldX / 50 + timestamp / 300) * 5; // Use worldX for continuous animation
+
+                    if (firstPoint) {
+                        ctx.moveTo(screenX, groundY + yOffset);
+                        firstPoint = false;
+                    } else {
+                        ctx.lineTo(screenX, groundY + yOffset);
+                    }
                 }
             }
+            ctx.stroke(); // Stroke each chunk's path individually
         }
-        ctx.stroke();
         ctx.restore();
     }
 
-
-    // 地面高光
-    // (注意: 这个高光效果暂时简化，因为精确重现需要额外计算)
-    ctx.strokeStyle = C.accent;
-    ctx.lineWidth = 2;
-    // ctx.stroke(); // 暂时禁用，以避免视觉错误
+    // 地面高光 (保持禁用)
+    // ctx.strokeStyle = C.accent;
+    // ctx.lineWidth = 2;
+    // ctx.stroke();
 
     // 装饰物 (Props)
     state.props.forEach(p => {
@@ -2080,6 +2088,8 @@ const layer = chunk.layers[3]; // ground layer
         if (!drawer) return;
 
         const x = p.worldX - state.worldScrollX;
+        if (x < -100 || x > w + 100) return; // Culling
+
         const groundY = getGroundY(p.worldX);
 
         if (groundY === null) {
@@ -2089,13 +2099,10 @@ const layer = chunk.layers[3]; // ground layer
         ctx.save();
         ctx.translate(x, groundY);
         ctx.scale(p.scale, p.scale);
-        // ctx.rotate(p.rot); // 禁用以确保静态
-
 
         ctx.shadowBlur = 10;
         ctx.shadowColor = C.accent;
 
-        // 调用专属的绘制函数
         drawer(ctx, C, p);
 
         ctx.restore();
