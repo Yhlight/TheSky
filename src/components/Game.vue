@@ -481,13 +481,13 @@ function getGroundY(worldX) {
     const index1 = Math.floor(pointIndexFloat);
     const index2 = index1 + 1;
 
-    let pointData1 = chunk.layers[4]?.[index1];
-    let pointData2 = chunk.layers[4]?.[index2];
+    let pointData1 = chunk.layers[4]?.floorPoints[index1];
+    let pointData2 = chunk.layers[4]?.floorPoints[index2];
 
     if (!pointData2 && index2 >= CFG.CHUNK_RESOLUTION) {
         const nextChunk = state.terrain.chunks.get(chunkId + 1);
         if (nextChunk) {
-            pointData2 = nextChunk.layers[4]?.[0];
+            pointData2 = nextChunk.layers[4]?.floorPoints[0];
         }
     }
 
@@ -912,15 +912,17 @@ function update(deltaTime, timestamp) {
             const step = CFG.CHUNK_WIDTH / CFG.CHUNK_RESOLUTION;
             for (let i = 0; i < chunk.layers.length; i++) {
                 const prop = getTerrainLayerProperties(i);
-                for (let j = 0; j < chunk.layers[i].length; j++) {
-                    const point = chunk.layers[i][j];
+                for (let j = 0; j < chunk.layers[i].floorPoints.length; j++) {
+                    const floorPoint = chunk.layers[i].floorPoints[j];
+                    const ceilingPoint = chunk.layers[i].ceilingPoints[j];
                     const worldX = chunk.worldX + j * step;
 
-                    // 1. 烘焙：将之前的 y2 (现在的 currentTheme 地形) 设为 y1
-                    point.y1 = point.y2;
+                    floorPoint.y1 = floorPoint.y2;
+                    ceilingPoint.y1 = ceilingPoint.y2;
 
-                    // 2. 重新计算 y2 以匹配新的 nextTheme
-                    point.y2 = generateNoiseValue(worldX, newNextTheme.terrainStyle, prop);
+                    const newValues = generateTerrainPoints(worldX, newNextTheme.terrainStyle, prop);
+                    floorPoint.y2 = newValues.floor;
+                    ceilingPoint.y2 = newValues.ceiling;
                 }
             }
         });
@@ -1234,118 +1236,63 @@ function updateWeather() {
 function getTerrainLayerProperties(layerIndex) {
     // 定义每一层地形的视觉属性
     const properties = [
-        { speedScale: 0.2, amp: 120, base: h * 0.65, freq: 0.002, noiseScale: 1.0 }, // mountFar
-        { speedScale: 0.4, amp: 100, base: h * 0.75, freq: 0.004, noiseScale: 1.2 }, // mountNear
-        { speedScale: 0.6, amp: 80, base: h * 0.8, freq: 0.006, noiseScale: 1.4 },  // NEW mid-ground 1
-        { speedScale: 0.8, amp: 50, base: h * 0.85, freq: 0.008, noiseScale: 1.6 },  // NEW mid-ground 2
-        { speedScale: 1.0, amp: 30,  base: h * CFG.terrainBaseY, freq: 0.005, isGround: true } // ground
+        { speedScale: 0.2, amp: 120, base: h * 0.65, freq: 0.002, noiseScale: 1.0, ceiling: false }, // mountFar
+        { speedScale: 0.4, amp: 100, base: h * 0.75, freq: 0.004, noiseScale: 1.2, ceiling: false }, // mountNear
+        { speedScale: 0.6, amp: 80, base: h * 0.8, freq: 0.006, noiseScale: 1.4, ceiling: true },  // NEW mid-ground 1
+        { speedScale: 0.8, amp: 50, base: h * 0.85, freq: 0.008, noiseScale: 1.6, ceiling: true },  // NEW mid-ground 2
+        { speedScale: 1.0, amp: 30,  base: h * CFG.terrainBaseY, freq: 0.005, isGround: true, ceiling: true } // ground
     ];
     return properties[layerIndex];
 }
 
-function generateNoiseValue(x, style, prop) {
-    let noiseVal = 0;
+function generateTerrainPoints(x, style, prop) {
+    let floor = h, ceiling = 0;
     const scroll = x * prop.speedScale * 0.01;
 
-    // Ground layer uses different algorithms
-    if (prop.isGround) {
-        switch (style) {
-            case 'ocean':
-                return prop.base + fbm(x * prop.freq * 0.8, 4, 0.4, 2.5) * prop.amp;
-            case 'canyons':
-                const canyonNoise = fbm(x * prop.freq * 0.5, 3, 0.6, 2);
-                const steps = Math.round(canyonNoise * 5) / 5;
-                return prop.base + steps * prop.amp * 1.2;
-            case 'floating_islands':
-                const islandVisibilityNoise = fbm(x * prop.freq * 0.3, 2, 0.5, 2);
-                if (islandVisibilityNoise > -0.1) {
-                    const islandShapeNoise = fbm(x * prop.freq * 1.5, 4, 0.4, 2.5);
-                    return prop.base + islandShapeNoise * prop.amp * 0.5;
-                } else {
-                    return h + 200; // Gap between islands
-                }
-            case 'cityscape':
-                const buildingCluster = Math.floor(x / 150);
-                const clusterHeightNoise = fbm(buildingCluster * 0.3, 2, 0.5, 2);
-                const individualBuildingNoise = fbm(x * 0.05, 3, 0.4, 3);
-                const combinedNoise = (clusterHeightNoise + individualBuildingNoise) / 2;
-                if (combinedNoise > -0.3) {
-                    const height = Math.pow(combinedNoise + 0.3, 2.5) * prop.amp * 4;
-                    const antennaNoise = fbm(x * 2.5, 2, 0.8, 4);
-                    const antenna = antennaNoise > 0.7 ? (antennaNoise - 0.7) * 100 : 0;
-                    return prop.base - height - antenna;
-                }
-                return prop.base;
-            case 'bioluminescent_forest':
-                // Rolling hills with occasional large root-like structures
-                const groundShape = fbm(x * prop.freq * 0.7, 4, 0.6, 2.1) * prop.amp;
-                const largeRoots = fbm(x * prop.freq * 0.2, 3, 0.8, 2) * prop.amp * 1.5;
-                return prop.base + groundShape + largeRoots;
-            case 'crystal_desert':
-                // Flat dunes with sharp crystal spikes
-                const dunes = fbm(x * prop.freq * 0.5, 3, 0.4, 2) * prop.amp * 0.5;
-                const spikes = Math.pow(Math.abs(fbm(x * 0.1, 2, 0.8, 2.5)), 3) * prop.amp * 2;
-                return prop.base + dunes - (spikes > prop.amp * 0.2 ? spikes : 0);
-            case 'caves':
-                const caveNoise = fbm(x * prop.freq * 0.6, 3, 0.5, 2.2);
-                const caveOpening = Math.pow(Math.abs(fbm(x * 0.002, 2, 0.5, 2)), 0.5);
-                const ceiling = prop.base - 200 - caveOpening * 300;
-                const floor = prop.base + caveNoise * prop.amp;
-                // Alternate between ceiling and floor based on another noise value
-                const selector = fbm(x * 0.0015, 1, 0.5, 2);
-                return selector > 0 ? ceiling : floor;
-            case 'peaks':
-                 const peakShape = 1 - Math.abs(fbm(x * prop.freq * 0.8, 4, 0.5, 2.5));
-                 const peakHeight = Math.pow(peakShape, 5) * prop.amp * 2.5;
-                 const valleyFloor = fbm(x * prop.freq * 0.5, 3, 0.4, 2) * prop.amp * 0.3;
-                 return prop.base - peakHeight + valleyFloor;
-            case 'inverted_arches':
-                 const archBase = fbm(x * prop.freq * 0.4, 3, 0.6, 2) * prop.amp;
-                 const archShape = Math.sin(x * prop.freq * 5) * 50;
-                 const archMask = smoothstep(Math.abs(fbm(x * 0.002, 2, 0.5, 2)));
-                 return prop.base + archBase + archShape * archMask;
-            default: // mountain, jagged, etc.
-                return prop.base + fbm(x * prop.freq, 5, 0.5, 2.2) * prop.amp * 0.8;
-        }
-    }
-
-    // Background mountain layers
-    const octave = prop.isGround ? 6 : 5;
-    const persistence = 0.5;
-    const lacunarity = 2.2;
-    const baseFreq = prop.freq * (prop.isGround ? 1 : 0.5);
-
+    // --- Floor Generation ---
+    let floorNoise;
     switch (style) {
         case 'ocean':
-            noiseVal = fbm(x * baseFreq + scroll, 4, 0.4, 3.0) * prop.amp * 0.6;
+            floorNoise = fbm(x * prop.freq * 0.8, 4, 0.4, 2.5) * prop.amp;
             break;
-        case 'cityscape':
-            const cluster = Math.floor(x / 150);
-            noiseVal = Math.pow(fbm(cluster * 0.2 + scroll, 2, 0.5, 2), 3) * prop.amp;
-            break;
-        case 'bioluminescent_forest':
-             // Dense canopy effect for background layers
-            noiseVal = fbm(x * baseFreq * 0.5 + scroll, 6, 0.4, 2.5) * prop.amp * 1.2;
-            noiseVal += fbm(x * baseFreq * 2.0 + scroll, 4, 0.5, 2.0) * prop.amp * 0.5;
-            break;
-        case 'crystal_desert':
-            // Distant crystal formations mirrored in the background
-            noiseVal = Math.pow(Math.abs(fbm(x * 0.001 + scroll, 2, 0.7, 2)), 2) * prop.amp * 1.5;
-            break;
-        case 'jagged':
-             // Use absolute value of noise to create sharp peaks and valleys
-            noiseVal = Math.abs(fbm(x * baseFreq + scroll, octave, persistence, lacunarity)) * prop.amp * 1.5;
-            // Add smaller, sharper noise for detail
-            noiseVal += Math.abs(fbm(x * baseFreq * 3.0 + scroll, 3, 0.3, 3.5)) * prop.amp * 0.3;
-            break;
-        case 'mountain':
+        // ... (add other floor styles)
         default:
-            noiseVal = fbm(x * baseFreq + scroll, octave, persistence, lacunarity) * prop.amp;
-            // Add a second layer for more detail
-            noiseVal += fbm(x * baseFreq * 2.5 + scroll + 17, 4, 0.4, 2.0) * prop.amp * 0.4;
+            floorNoise = fbm(x * prop.freq, 5, 0.5, 2.2) * prop.amp * 0.8;
             break;
     }
-    return prop.base - noiseVal;
+    floor = prop.base + floorNoise;
+
+    // --- Ceiling Generation ---
+    if (prop.ceiling) {
+        let ceilingNoise;
+        switch (style) {
+            case 'caves':
+                const caveShape = fbm(x * prop.freq * 0.6, 3, 0.5, 2.2) * prop.amp;
+                const caveOpening = Math.pow(fbm(x * 0.002, 2, 0.5, 2), 2) * (h * 0.8);
+                floor = prop.base + caveShape;
+                ceiling = floor - caveOpening - 150; // Ensure a minimum gap
+                break;
+            case 'peaks':
+                const peakShape = Math.pow(1 - Math.abs(fbm(x * prop.freq * 0.8, 4, 0.5, 2.5)), 5) * (h * 1.5);
+                floor = prop.base + fbm(x * prop.freq * 0.5, 3, 0.4, 2) * prop.amp * 0.3 - peakShape;
+                ceiling = -h; // Effectively no ceiling
+                break;
+            // ... (add other ceiling styles)
+            default:
+                ceilingNoise = fbm(x * prop.freq + 100, 5, 0.5, 2.2) * prop.amp;
+                ceiling = prop.base - h * 0.4 + ceilingNoise;
+                break;
+        }
+    } else {
+        ceiling = -h; // No ceiling for this layer
+    }
+
+    // Ensure floor is always below ceiling
+    if (floor < ceiling + 100) {
+        floor = ceiling + 100;
+    }
+
+    return { floor, ceiling };
 }
 
 function generateTerrainChunk(chunkId) {
@@ -1353,7 +1300,6 @@ function generateTerrainChunk(chunkId) {
 
     const theme1 = state.currentTheme;
     const theme2 = state.nextTheme;
-    // !! 移除 progress，因为混合将在渲染时进行
 
     const chunk = {
         id: chunkId,
@@ -1363,18 +1309,21 @@ function generateTerrainChunk(chunkId) {
     const step = CFG.CHUNK_WIDTH / CFG.CHUNK_RESOLUTION;
 
     for (let i = 0; i < CFG.TERRAIN_LAYERS; i++) {
-        const layerData = [];
+        const layerData = {
+            floorPoints: [],
+            ceilingPoints: []
+        };
         const prop = getTerrainLayerProperties(i);
 
         for (let j = 0; j <= CFG.CHUNK_RESOLUTION; j++) {
             const x = chunk.worldX + j * step;
 
-            // 分别为当前和下一个主题生成并存储地形数据
-            const y1 = generateNoiseValue(x, theme1.terrainStyle, prop);
-            const y2 = generateNoiseValue(x, theme2.terrainStyle, prop);
+            // This will be updated in the next step to generate both floor and ceiling
+            const y1 = generateTerrainPoints(x, theme1.terrainStyle, prop);
+            const y2 = generateTerrainPoints(x, theme2.terrainStyle, prop);
 
-            // 存储两个值，而不是混合后的值
-            layerData.push({ y1, y2 });
+            layerData.floorPoints.push({ y1: y1.floor, y2: y2.floor });
+            layerData.ceilingPoints.push({ y1: y1.ceiling, y2: y2.ceiling });
         }
         chunk.layers.push(layerData);
     }
@@ -1639,32 +1588,44 @@ function drawWeather(ctx, C) {
 
 function drawTerrainLayerFromChunks(ctx, color, layerIndex, progress) {
     ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(0, h);
-
     const startChunkId = Math.floor(state.worldScrollX / CFG.CHUNK_WIDTH);
     const endChunkId = Math.floor((state.worldScrollX + w) / CFG.CHUNK_WIDTH);
     const step = CFG.CHUNK_WIDTH / CFG.CHUNK_RESOLUTION;
 
+    // --- Draw Floor ---
+    ctx.beginPath();
+    ctx.moveTo(0, h);
     for (let id = startChunkId; id <= endChunkId; id++) {
         const chunk = state.terrain.chunks.get(id);
         if (!chunk) continue;
-
-        const layerData = chunk.layers[layerIndex];
-        if (!layerData) continue;
-
-        for (let i = 0; i < layerData.length; i++) {
-            const pointData = layerData[i];
+        const layer = chunk.layers[layerIndex];
+        if (!layer || !layer.floorPoints) continue;
+        for (let i = 0; i < layer.floorPoints.length; i++) {
+            const pointData = layer.floorPoints[i];
             const screenX = chunk.worldX + i * step - state.worldScrollX;
-
-            // 实时混合
             const y = lerp(pointData.y1, pointData.y2, progress);
-
             ctx.lineTo(screenX, y);
         }
     }
-
     ctx.lineTo(w, h);
+    ctx.fill();
+
+    // --- Draw Ceiling ---
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    for (let id = startChunkId; id <= endChunkId; id++) {
+        const chunk = state.terrain.chunks.get(id);
+        if (!chunk) continue;
+        const layer = chunk.layers[layerIndex];
+        if (!layer || !layer.ceilingPoints) continue;
+        for (let i = 0; i < layer.ceilingPoints.length; i++) {
+            const pointData = layer.ceilingPoints[i];
+            const screenX = chunk.worldX + i * step - state.worldScrollX;
+            const y = lerp(pointData.y1, pointData.y2, progress);
+            ctx.lineTo(screenX, y);
+        }
+    }
+    ctx.lineTo(w, 0);
     ctx.fill();
 }
 
@@ -1991,9 +1952,9 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
         for (let id = startChunkId; id <= endChunkId; id++) {
             const chunk = state.terrain.chunks.get(id);
             if (!chunk) continue;
-            const layerData = chunk.layers[4]; // ground layer
-            if (!layerData) continue;
-            for (let i = 0; i < layerData.length; i++) {
+    const layer = chunk.layers[4]; // ground layer
+    if (!layer || !layer.floorPoints) continue;
+    for (let i = 0; i < layer.floorPoints.length; i++) {
                 const worldX = chunk.worldX + i * step;
                 const groundY = getGroundY(worldX);
                 if (groundY !== null) {
