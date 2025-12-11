@@ -2745,5 +2745,10 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Scoped styles can be added here if needed */
+#canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
 </style>
