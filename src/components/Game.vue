@@ -1074,7 +1074,6 @@ function draw(timestamp) {
     drawTerrainLayerFromChunks(ctx, C.mountNear, 1, progress);
     drawTerrainLayerFromChunks(ctx, mountMid1, 2, progress);
     drawTerrainLayerFromChunks(ctx, mountMid2, 3, progress);
-    drawTerrainLayerFromChunks(ctx, C.ground, 4, progress);
 
     // --- 新增: 3.5 远景实体 ---
     drawDistantEntities(ctx, C);
@@ -1099,7 +1098,9 @@ function draw(timestamp) {
     // --- 6. 绘制NPCs ---
     drawNpcs(ctx, C);
 
-    // --- 7. 玩家 (光之丝带) ---
+    // --- 7. 前景 ---
+    drawTerrainLayerFromChunks(ctx, C.ground, 4, progress);
+
     // --- 8. 前景粒子 ---
     drawParticles(ctx, C, 1.0); // 前景粒子最清晰
 
@@ -1983,9 +1984,6 @@ const PROP_DRAWERS = {
 };
 
 function drawGroundAndProps(ctx, C, progress, timestamp) {
-    // --- 从区块绘制地面 ---
-    drawTerrainLayerFromChunks(ctx, C.ground, 3, progress);
-
     // --- 新增：地之火 - 脉动的熔岩裂隙 ---
     const theme = state.currentTheme;
     if (theme.tags.includes('fire')) {
