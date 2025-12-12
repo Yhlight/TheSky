@@ -899,7 +899,7 @@ function update(deltaTime, timestamp) {
         p.y = groundY - 10;
         p.velocity.y = 0;
     }
-    if (ceilingY !== null && groundY !== null && ceilingY < groundY && p.y < ceilingY + 10) {
+    if (ceilingY !== null && (groundY === null || ceilingY < groundY) && p.y < ceilingY + 10) {
         p.y = ceilingY + 10;
         p.velocity.y = 0;
     }
@@ -1069,11 +1069,10 @@ function draw(timestamp) {
 
     // --- 3. 多层视差地形 (从区块绘制) ---
     const mountMid1 = lerpColor(C.mountNear, C.ground, 0.33);
-    const mountMid2 = lerpColor(C.mountNear, C.ground, 0.66);
     drawTerrainLayerFromChunks(ctx, C.mountFar, 0, progress);
     drawTerrainLayerFromChunks(ctx, C.mountNear, 1, progress);
     drawTerrainLayerFromChunks(ctx, mountMid1, 2, progress);
-    drawTerrainLayerFromChunks(ctx, mountMid2, 3, progress);
+    drawTerrainLayerFromChunks(ctx, C.ground, 3, progress);
     drawTerrainLayerFromChunks(ctx, C.ground, 4, progress);
 
     // --- 新增: 3.5 远景实体 ---
@@ -1099,7 +1098,6 @@ function draw(timestamp) {
     // --- 6. 绘制NPCs ---
     drawNpcs(ctx, C);
 
-    // --- 7. 玩家 (光之丝带) ---
     // --- 8. 前景粒子 ---
     drawParticles(ctx, C, 1.0); // 前景粒子最清晰
 
@@ -1984,7 +1982,7 @@ const PROP_DRAWERS = {
 
 function drawGroundAndProps(ctx, C, progress, timestamp) {
     // --- 从区块绘制地面 ---
-    drawTerrainLayerFromChunks(ctx, C.ground, 3, progress);
+    // Layer 3 (main ground) is now drawn in the main draw() function.
 
     // --- 新增：地之火 - 脉动的熔岩裂隙 ---
     const theme = state.currentTheme;
@@ -2007,9 +2005,9 @@ function drawGroundAndProps(ctx, C, progress, timestamp) {
         for (let id = startChunkId; id <= endChunkId; id++) {
             const chunk = state.terrain.chunks.get(id);
             if (!chunk) continue;
-const layer = chunk.layers[3]; // ground layer
-    if (!layer || !layer.floorPoints) continue;
-    for (let i = 0; i < layer.floorPoints.length; i++) {
+            const layer = chunk.layers[3]; // ground layer
+            if (!layer || !layer.floorPoints) continue;
+            for (let i = 0; i < layer.floorPoints.length; i++) {
                 const worldX = chunk.worldX + i * step;
                 const groundY = getGroundY(worldX);
                 if (groundY !== null) {
@@ -2658,8 +2656,13 @@ onMounted(() => {
     sceneNameText.value = state.currentTheme.name[UILang];
     isSceneNameVisible.value = true;
 
-    // Initial resize
+    // Initial resize and player position
     resize();
+    const initialGroundY = getGroundY(state.player.x);
+    const initialCeilingY = getCeilingY(state.player.x);
+    if (initialGroundY !== null && initialCeilingY !== null) {
+        state.player.y = (initialGroundY + initialCeilingY) / 2;
+    }
 
     // Add event listeners
     window.addEventListener('resize', resize);
