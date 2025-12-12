@@ -897,11 +897,11 @@ function update(deltaTime, timestamp) {
 
     if (groundY !== null && p.y > groundY - 10) {
         p.y = groundY - 10;
-        p.velocity.y *= -0.4; // Bounce
+        p.velocity.y = 0;
     }
     if (ceilingY !== null && groundY !== null && ceilingY < groundY && p.y < ceilingY + 10) {
         p.y = ceilingY + 10;
-        p.velocity.y *= -0.4; // Bounce
+        p.velocity.y = 0;
     }
 
     // --- 3. 更新拖尾 ---
